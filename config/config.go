@@ -9,16 +9,18 @@ import (
 )
 
 type AppConfig struct {
-	Env              string `mapstructure:"ENV_NAME"`
-	LogLevel         string `mapstructure:"LOG_LEVEL"`
-	AccessKey        string `mapstructure:"ACCESS_KEY"`
-	SenderId         string `mapstructure:"SENDER_COMPID"`
-	Passphrase       string `mapstructure:"PASSPHRASE"`
-	SigningKey       string `mapstructure:"SIGNING_KEY"`
-	SessionKey       string `mapstructure:"SESSION_KEY"`
-	PrimeApiUrl      string `mapstructure:"PRIME_API_URL"`
-	PortfolioId      string `mapstructure:"PORTFOLIO_ID"`
-	PrimeCredentials string `mapstructure:"PRIME_CREDENTIALS"`
+	Env               string `mapstructure:"ENV_NAME"`
+	LogLevel          string `mapstructure:"LOG_LEVEL"`
+	AccessKey         string `mapstructure:"ACCESS_KEY"`
+	SenderId          string `mapstructure:"SENDER_COMPID"`
+	Passphrase        string `mapstructure:"PASSPHRASE"`
+	SigningKey        string `mapstructure:"SIGNING_KEY"`
+	SessionKey        string `mapstructure:"SESSION_KEY"`
+	PrimeApiUrl       string `mapstructure:"PRIME_API_URL"`
+	PortfolioId       string `mapstructure:"PORTFOLIO_ID"`
+	PrimeCredentials  string `mapstructure:"PRIME_CREDENTIALS"`
+	KinesisStreamName string `mapstructure:"KDS_STREAM_NAME"`
+	AwsRegion         string `mapstructure:"AWS_REGION"`
 }
 
 func (a AppConfig) IsLocalEnv() bool {

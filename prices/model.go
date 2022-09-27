@@ -1,6 +1,9 @@
 package prices
 
-import "time"
+import (
+	"math"
+	"time"
+)
 
 type OrderBookUpdate struct {
 	Channel     string    `json:"channel"`
@@ -23,9 +26,16 @@ type PriceSummary struct {
 }
 
 type AssetPrice struct {
-	Name      string
-	Ticker    string
-	HighOffer float64
-	LowBid    float64
-	Spread    float64
+	Name      string  `json:"name"`
+	Ticker    string  `json:"productId"`
+	HighOffer float64 `json:"highOffer"`
+	LowBid    float64 `json:"lowBid"`
+	Spread    float64 `json:"spread"`
+}
+
+func (ap AssetPrice) NotSet() bool {
+	if math.IsNaN(ap.HighOffer) || math.IsNaN(ap.LowBid) || math.IsNaN(ap.Spread) {
+		return true
+	}
+	return false
 }
