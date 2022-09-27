@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	"github.com/coinbase-samples/ib-venue-listener-go/prices"
 	log "github.com/sirupsen/logrus"
@@ -16,12 +14,17 @@ func main() {
 
 	var app config.AppConfig
 
-	config.Setup(&app)
-	fmt.Println("starting app with config", app)
+	if err := config.Setup(&app); err != nil {
+		log.Fatalf("Unable to config app: %v", err)
+	}
+
+	// This will print the prime credentials
+	if app.IsLocalEnv() {
+		log.Infof("starting app with config: %v", app)
+	}
 
 	logLevel, _ := log.ParseLevel(app.LogLevel)
-	logrusLogger.SetLevel(logLevel)
-	logrusLogger.SetFormatter(&log.JSONFormatter{})
+	log.SetLevel(logLevel)
 
 	//order.StartListener(app)
 	prices.StartListener(app)
