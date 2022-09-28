@@ -192,7 +192,6 @@ func writeAssetPriceToEventBus(
 ) {
 
 	if asset.NotSet() {
-		log.Warnf("asset.NotSet")
 		return
 	}
 
