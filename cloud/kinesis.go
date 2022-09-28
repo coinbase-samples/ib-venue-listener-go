@@ -9,7 +9,6 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
-	"github.com/google/uuid"
 )
 
 var (
@@ -17,18 +16,26 @@ var (
 	kinesisClientLock sync.Mutex
 )
 
-func KdsPutRecord(ctx context.Context, app config.AppConfig, data []byte) error {
+func KdsPutRecord(
+	ctx context.Context,
+	app config.AppConfig,
+	streamName,
+	partitionKey string,
+	data []byte,
+) error {
+
 	client, err := KdsClient(app)
 	if err != nil {
 		return err
 	}
 
-	client.PutRecord(ctx, &kinesis.PutRecordInput{
-		PartitionKey: aws.String(uuid.NewString()),
+	_, err = client.PutRecord(ctx, &kinesis.PutRecordInput{
+		PartitionKey: aws.String(partitionKey),
+		StreamName:   aws.String(streamName),
 		Data:         data,
 	})
 
-	return nil
+	return err
 }
 
 func KdsClient(app config.AppConfig) (*kinesis.Client, error) {
