@@ -43,7 +43,7 @@ func Setup(app *AppConfig) error {
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		log.Infof("Missing env file %v\n", err)
+		log.Infof("Missing env file %v", err)
 	}
 
 	err = viper.Unmarshal(&app)
@@ -56,6 +56,8 @@ func Setup(app *AppConfig) error {
 	}
 
 	fmt.Println(app.PrimeCredentials)
+
+	log.Warnf("credentials: %s", app.PrimeCredentials)
 
 	// Parse the prime credentials
 	var creds map[string]interface{}
