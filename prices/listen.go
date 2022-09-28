@@ -207,10 +207,15 @@ func writeAssetPriceToEventBus(
 	dst := make([]byte, base64.StdEncoding.EncodedLen(len(val)))
 	base64.StdEncoding.Encode(dst, val)
 
-	if err := cloud.KdsPutRecord(context.Background(), app, dst); err != nil {
-
+	if err := cloud.KdsPutRecord(
+		context.Background(),
+		app,
+		app.PriceKinesisStreamName,
+		asset.Ticker,
+		dst,
+	); err != nil {
+		log.Errorf("Unable to put KDS record: %v", err)
 	}
-
 }
 
 func subscribePricesString(app config.AppConfig) string {
