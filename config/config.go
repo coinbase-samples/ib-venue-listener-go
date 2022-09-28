@@ -55,6 +55,8 @@ func Setup(app *AppConfig) error {
 		return nil
 	}
 
+	fmt.Println(app.PrimeCredentials)
+
 	// Parse the prime credentials
 	var creds map[string]interface{}
 	err = json.Unmarshal([]byte(app.PrimeCredentials), &creds)
