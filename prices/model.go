@@ -3,8 +3,6 @@ package prices
 import (
 	"math"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type OrderBookUpdate struct {
@@ -37,7 +35,6 @@ type AssetPrice struct {
 
 func (ap AssetPrice) NotSet() bool {
 	if math.IsNaN(ap.HighOffer) || math.IsNaN(ap.LowBid) || math.IsNaN(ap.Spread) {
-		log.Warn("NotSet")
 		return true
 	}
 	return false
