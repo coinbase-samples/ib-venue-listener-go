@@ -89,10 +89,10 @@ func StartListener(app config.AppConfig) {
 		for {
 			select {
 			case <-ticker.C:
+
+				log.Warn(summary)
 				for _, asset := range summary.Assets {
-
 					writeAssetPriceToEventBus(app, asset)
-
 				}
 
 			case <-quit:
@@ -193,6 +193,7 @@ func writeAssetPriceToEventBus(
 ) {
 
 	if asset.NotSet() {
+		log.Warnf("asset.NotSet")
 		return
 	}
 
