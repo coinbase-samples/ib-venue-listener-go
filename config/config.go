@@ -57,9 +57,14 @@ func Setup(app *AppConfig) error {
 		return nil
 	}
 
-	app.PrimeCredentials = os.Getenv("PRIME_CREDENTIALS")
+	// TODO: Why aren't these being picked up by viper? Do you have
+	// to set a default?
 
-	log.Warnf("credentials: %s", app.PrimeCredentials)
+	app.PrimeApiUrl = os.Getenv("PRIME_API_URL")
+	app.AwsRegion = os.Getenv("AWS_REGION")
+	app.PriceKinesisStreamName = os.Getenv("PRICE_KDS_STREAM_NAME")
+	app.OrderKinesisStreamName = os.Getenv("ORDER_KDS_STREAM_NAME")
+	app.PrimeCredentials = os.Getenv("PRIME_CREDENTIALS")
 
 	// Parse the prime credentials
 	var creds map[string]interface{}
