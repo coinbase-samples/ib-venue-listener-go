@@ -9,7 +9,6 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -25,8 +24,6 @@ func KdsPutRecord(
 	data []byte,
 ) error {
 
-	log.Warn("KdsPutRecord: start")
-
 	client, err := KdsClient(app)
 	if err != nil {
 		return err
@@ -38,16 +35,12 @@ func KdsPutRecord(
 		Data:         data,
 	})
 
-	log.Warn("KdsPutRecord: end")
-
 	return err
 }
 
 func KdsClient(app config.AppConfig) (*kinesis.Client, error) {
 	kinesisClientLock.Lock()
 	defer kinesisClientLock.Unlock()
-
-	log.Warn("KdsClient")
 
 	if kinesisClient != nil {
 		return kinesisClient, nil
