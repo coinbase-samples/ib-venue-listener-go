@@ -20,7 +20,7 @@ func main() {
 
 	// This will print the prime credentials
 	if app.IsLocalEnv() {
-		log.Infof("starting app with config: %v", app)
+		log.Debugf("starting app with config: %v", app)
 	}
 
 	logLevel, _ := log.ParseLevel(app.LogLevel)

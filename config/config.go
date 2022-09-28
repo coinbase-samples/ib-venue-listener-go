@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -29,6 +30,7 @@ func (a AppConfig) IsLocalEnv() bool {
 }
 
 func Setup(app *AppConfig) error {
+
 	viper.AddConfigPath(".")
 	viper.SetConfigName(".env")
 	viper.SetConfigType("env")
@@ -55,7 +57,7 @@ func Setup(app *AppConfig) error {
 		return nil
 	}
 
-	fmt.Println(app.PrimeCredentials)
+	app.PrimeCredentials = os.Getenv("PRIME_CREDENTIALS")
 
 	log.Warnf("credentials: %s", app.PrimeCredentials)
 
