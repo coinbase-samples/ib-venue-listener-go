@@ -90,7 +90,6 @@ func StartListener(app config.AppConfig) {
 			select {
 			case <-ticker.C:
 
-				log.Warn(summary)
 				for _, asset := range summary.Assets {
 					writeAssetPriceToEventBus(app, asset)
 				}
