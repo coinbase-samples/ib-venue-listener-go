@@ -110,12 +110,16 @@ func StartListener(app config.AppConfig) {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				log.Errorf("Read message:", err)
+				log.Errorf("read message: %v", err)
 				return
 			}
 
 			var ud = &OrderBookUpdate{}
-			json.Unmarshal(message, &ud)
+			err = json.Unmarshal(message, &ud)
+			if err != nil {
+				log.Error("unable to umarshal json %v", message, err)
+				return
+			}
 
 			for _, row := range ud.Events {
 

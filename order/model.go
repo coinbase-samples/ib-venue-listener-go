@@ -2,7 +2,7 @@ package order
 
 import "time"
 
-type OrderUpdate struct {
+type Update struct {
 	Channel     string    `json:"channel"`
 	Timestamp   time.Time `json:"timestamp"`
 	SequenceNum int       `json:"sequence_num"`

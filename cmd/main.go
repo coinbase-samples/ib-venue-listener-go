@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
+	"github.com/coinbase-samples/ib-venue-listener-go/order"
 	"github.com/coinbase-samples/ib-venue-listener-go/prices"
 	log "github.com/sirupsen/logrus"
 )
@@ -26,6 +27,6 @@ func main() {
 	logLevel, _ := log.ParseLevel(app.LogLevel)
 	log.SetLevel(logLevel)
 
-	//order.StartListener(app)
+	order.StartListener(app)
 	prices.StartListener(app)
 }

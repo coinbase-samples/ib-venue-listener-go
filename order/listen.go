@@ -1,8 +1,12 @@
 package order
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"log"
+	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
+	"github.com/recws-org/recws"
 	"net/url"
 	"os"
 	"os/signal"
@@ -11,6 +15,7 @@ import (
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	"github.com/coinbase-samples/ib-venue-listener-go/prime"
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 func StartListener(app config.AppConfig) {
@@ -18,38 +23,38 @@ func StartListener(app config.AppConfig) {
 	messageOut := make(chan string)
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
-	u := url.URL{Scheme: "wss", Host: app.PrimeApiUrl}
-	log.Printf("connecting to %s", u.String())
-	c, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		log.Printf("handshake failed with status %d", resp.StatusCode)
-		log.Fatal("dial:", err)
-	}
 
-	//When the program closes close the connection
-	defer c.Close()
+	u := url.URL{Scheme: "wss", Host: app.PrimeApiUrl}
+
+	log.Printf("connecting to %s", u.String())
+	ctx, _ := context.WithCancel(context.Background())
+	ws := recws.RecConn{}
+	ws.Dial(u.String(), nil)
+
+	//When the program closes, close the connection
+	defer ws.Close()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		messageOut <- subscribeOrdersString(app)
 		for {
-			_, message, err := c.ReadMessage()
+			_, message, err := ws.ReadMessage()
 			if err != nil {
-				log.Println("read:", err)
+				log.Error("read:", err)
 				return
 			}
 			log.Printf("recv: %s", message)
 		}
-
 	}()
 
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
+			log.Printf("Websocket closed %s", ws.GetURL())
 			return
 		case m := <-messageOut:
 			log.Printf("Send Message %s", m)
-			err := c.WriteMessage(websocket.TextMessage, []byte(m))
+			err := ws.WriteMessage(websocket.TextMessage, []byte(m))
 			if err != nil {
 				log.Println("write:", err)
 				return
@@ -58,13 +63,13 @@ func StartListener(app config.AppConfig) {
 			log.Println("interrupt")
 			// Cleanly close the connection by sending a close message and then
 			// waiting (with timeout) for the server to close the connection.
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err := ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				log.Println("write close:", err)
 				return
 			}
 			select {
-			case <-done:
+			case <-ctx.Done():
 			case <-time.After(time.Second):
 			}
 			return
@@ -93,4 +98,35 @@ func subscribeOrdersString(app config.AppConfig) string {
       }`, msgType, channel, key, accountId, portfolioId, signature, app.Passphrase, msgTime)
 	fmt.Println("message", message)
 	return message
+}
+
+func writeOrderUpdatesToEventBus(
+	app config.AppConfig,
+	orderUpdate Update,
+) {
+	// loop in loop because everything is an array for some reason
+	for _, event := range orderUpdate.Events {
+		for _, order := range event.Orders {
+			val, err := json.Marshal(order)
+			if err != nil {
+				log.Errorf("Unable to marshal asset: %v", err)
+				return
+			}
+
+			val = append(val, []byte("\n")...)
+
+			dst := make([]byte, base64.StdEncoding.EncodedLen(len(val)))
+			base64.StdEncoding.Encode(dst, val)
+
+			if err := cloud.KdsPutRecord(
+				context.Background(),
+				app,
+				app.OrderKinesisStreamName,
+				order.ClientOrderID,
+				dst,
+			); err != nil {
+				log.Errorf("Unable to put KDS record: %v", err)
+			}
+		}
+	}
 }
