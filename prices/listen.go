@@ -69,6 +69,8 @@ func RunListener(app config.AppConfig) {
 }
 
 func processMessagesWithReconnect(app config.AppConfig) {
+	productIds := `["BTC-USD", "ETH-USD", "ADA-USD", "MATIC-USD", "ATOM-USD", "SOL-USD"]`
+
 	for {
 		c, err := prime.DialWebSocket(context.TODO(), app)
 		if err != nil {
@@ -77,7 +79,7 @@ func processMessagesWithReconnect(app config.AppConfig) {
 			continue
 		}
 
-		if err := c.WriteMessage(websocket.TextMessage, subscribePricesMsg(app)); err != nil {
+		if err := c.WriteMessage(websocket.TextMessage, prime.PricesSubscriptionMsg(app, productIds)); err != nil {
 			log.Errorf("Unable to subscribe to price feed: %v", err)
 			time.Sleep(2 * time.Second)
 			continue
@@ -222,28 +224,4 @@ func writeAssetPriceToEventBus(
 	); err != nil {
 		log.Errorf("Unable to put KDS record: %v", err)
 	}
-}
-
-func subscribePricesMsg(app config.AppConfig) []byte {
-	msgType := "subscribe"
-	channel := "l2_data"
-	key := app.AccessKey
-	accountId := app.SenderId
-
-	productIds := `["BTC-USD", "ETH-USD", "ADA-USD", "MATIC-USD", "ATOM-USD", "SOL-USD"]`
-
-	msgTime := time.Now().UTC().Format(time.RFC3339)
-
-	signature := prime.Sign(channel, key, accountId, msgTime, "", productIds, app.SigningKey)
-
-	return []byte(fmt.Sprintf(`{
-		"type": "%s",
-		"channel": "%s",
-		"product_ids": %s,
-		"access_key": "%s",
-		"api_key_id": "%s",
-		"signature": "%s",
-		"passphrase": "%s",
-		"timestamp": "%s" }`,
-		msgType, channel, productIds, key, accountId, signature, app.Passphrase, msgTime))
 }

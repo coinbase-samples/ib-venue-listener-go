@@ -55,7 +55,7 @@ func processMessagesWithReconnect(app config.AppConfig) {
 			continue
 		}
 
-		if err := c.WriteMessage(websocket.TextMessage, subscribeOrdersString(app)); err != nil {
+		if err := c.WriteMessage(websocket.TextMessage, prime.OrderSubscriptionMsg(app)); err != nil {
 			log.Errorf("Unable to subscribe to orders feed: %v", err)
 			time.Sleep(2 * time.Second)
 			continue
@@ -71,27 +71,6 @@ func processMessagesWithReconnect(app config.AppConfig) {
 			log.Error(err)
 		}
 	}
-}
-
-func subscribeOrdersMsg(app config.AppConfig) []byte {
-	msgType := "subscribe"
-	channel := "orders"
-	key := app.AccessKey
-	accountId := app.SenderId
-	portfolioId := app.PortfolioId
-	dt := time.Now().UTC()
-	msgTime := dt.Format(time.RFC3339)
-	signature := prime.Sign(channel, key, accountId, msgTime, portfolioId, "", app.SigningKey)
-	return []byte(fmt.Sprintf(`{
-        "type": "%s",
-        "channel": "%s",
-        "access_key": "%s",
-        "api_key_id": "%s",
-				"portfolio_id": "%s",
-        "signature": "%s",
-        "passphrase": "%s",
-        "timestamp": "%s"
-      }`, msgType, channel, key, accountId, portfolioId, signature, app.Passphrase, msgTime))
 }
 
 func writeOrderUpdatesToEventBus(
