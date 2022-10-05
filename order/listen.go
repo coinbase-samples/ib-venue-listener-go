@@ -43,7 +43,10 @@ func StartListener(app config.AppConfig) {
 				log.Error("read:", err)
 				return
 			}
-			log.Printf("recv: %s", message)
+
+			var ud = &Update{}
+			err = json.Unmarshal(message, &ud)
+			writeOrderUpdatesToEventBus(app, ud)
 		}
 	}()
 
@@ -96,13 +99,12 @@ func subscribeOrdersString(app config.AppConfig) string {
         "passphrase": "%s",
         "timestamp": "%s"
       }`, msgType, channel, key, accountId, portfolioId, signature, app.Passphrase, msgTime)
-	fmt.Println("message", message)
 	return message
 }
 
 func writeOrderUpdatesToEventBus(
 	app config.AppConfig,
-	orderUpdate Update,
+	orderUpdate *Update,
 ) {
 	// loop in loop because everything is an array for some reason
 	for _, event := range orderUpdate.Events {
