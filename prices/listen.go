@@ -114,44 +114,46 @@ func StartListener(app config.AppConfig) {
 				return
 			}
 
-			//log.Infof("recv: %s", message)
 			var ud = &OrderBookUpdate{}
 			json.Unmarshal(message, &ud)
 
-			if len(ud.Events) > 0 && len(ud.Events[0].Updates) > 0 {
-				for _, row := range ud.Events {
-					product := row.ProductID
-					assetPriceIdx := slices.IndexFunc(summary.Assets, func(a AssetPrice) bool { return a.Ticker == product })
-					assetPrice := summary.Assets[assetPriceIdx]
-					//log.Printf("existing summary - %v", assetPrice)
+			for _, row := range ud.Events {
 
-					floor, ceiling, spread := float64(1000000), float64(0), float64(0)
+				product := row.ProductID
 
-					for _, row := range row.Updates {
+				assetPriceIdx := slices.IndexFunc(summary.Assets, func(a AssetPrice) bool { return a.Ticker == product })
 
-						if row.Qty == "0" {
-							//skip
-						} else {
-							rowPrice, _ := strconv.ParseFloat(row.Px, 32)
-							if row.Side == "offer" && rowPrice < floor {
-								floor = rowPrice
-							} else if row.Side == "bid" && rowPrice > ceiling {
+				assetPrice := summary.Assets[assetPriceIdx]
 
-								ceiling = rowPrice
-							}
-						}
+				floor, ceiling, spread := math.NaN(), math.NaN(), math.NaN()
+
+				for _, row := range row.Updates {
+
+					if row.Qty == "0" {
+						continue
 					}
-					spread = ceiling - floor
 
-					summary.Assets[assetPriceIdx] = AssetPrice{
-						Name:      assetPrice.Name,
-						Ticker:    assetPrice.Ticker,
-						HighOffer: ceiling,
-						LowBid:    floor,
-						Spread:    spread,
+					rowPrice, _ := strconv.ParseFloat(row.Px, 32)
+
+					if row.Side == "offer" && (math.IsNaN(floor) || rowPrice < floor) {
+
+						floor = rowPrice
+
+					} else if row.Side == "bid" && (math.IsNaN(ceiling) || rowPrice > ceiling) {
+
+						ceiling = rowPrice
 					}
 				}
 
+				spread = ceiling - floor
+
+				summary.Assets[assetPriceIdx] = AssetPrice{
+					Name:      assetPrice.Name,
+					Ticker:    assetPrice.Ticker,
+					HighOffer: ceiling,
+					LowBid:    floor,
+					Spread:    spread,
+				}
 			}
 		}
 
