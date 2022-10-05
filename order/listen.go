@@ -17,6 +17,9 @@ import (
 )
 
 func RunListener(app config.AppConfig) {
+
+	// TODO: Implement a context for cancel / shutdown
+
 	processMessagesWithReconnect(app)
 }
 
