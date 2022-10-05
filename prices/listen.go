@@ -123,6 +123,10 @@ func StartListener(app config.AppConfig) {
 
 				assetPriceIdx := slices.IndexFunc(summary.Assets, func(a AssetPrice) bool { return a.Ticker == product })
 
+				if assetPriceIdx == -1 {
+					continue
+				}
+
 				assetPrice := summary.Assets[assetPriceIdx]
 
 				floor, ceiling, spread := math.NaN(), math.NaN(), math.NaN()
