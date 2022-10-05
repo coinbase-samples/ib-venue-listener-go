@@ -244,7 +244,6 @@ func subscribePricesString(app config.AppConfig) string {
 	accountId := app.SenderId
 
 	productIds := `["BTC-USD", "ETH-USD", "ADA-USD", "MATIC-USD", "ATOM-USD", "SOL-USD"]`
-	//productIds := `["BTC-USD"]`
 
 	t := time.Now()
 	msgTime := t.UTC().Format(time.RFC3339)
