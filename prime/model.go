@@ -17,8 +17,8 @@ type OrderBookUpdate struct {
 			Px        string    `json:"px"`
 			Qty       string    `json:"qty"`
 		} `json:"updates"`
-		Subscriptions []struct {
-			Heartbeats []string `json:"heartbeats"`
+		Subscriptions struct {
+			Orders []string `json:"orders"`
 		} `json:"subscriptions"`
 	} `json:"events"`
 }
@@ -40,8 +40,8 @@ type OrderUpdate struct {
 			Fees          string `json:"fees"`
 			Status        string `json:"status"`
 		} `json:"orders"`
-		Subscriptions []struct {
-			Heartbeats []string `json:"heartbeats"`
+		Subscriptions struct {
+			L2Data []string `json:"l2_data"`
 		} `json:"subscriptions"`
 	} `json:"events"`
 }
