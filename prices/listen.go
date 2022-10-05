@@ -129,7 +129,7 @@ func StartListener(app config.AppConfig) {
 
 				assetPrice := summary.Assets[assetPriceIdx]
 
-				floor, ceiling, spread := math.NaN(), math.NaN(), math.NaN()
+				floor, ceiling := math.NaN(), math.NaN()
 
 				for _, row := range row.Updates {
 
@@ -149,7 +149,19 @@ func StartListener(app config.AppConfig) {
 					}
 				}
 
-				spread = ceiling - floor
+				if math.IsNaN(ceiling) {
+					if !math.IsNaN(summary.Assets[assetPriceIdx].HighOffer) {
+						ceiling = summary.Assets[assetPriceIdx].HighOffer
+					}
+				}
+
+				if math.IsNaN(floor) {
+					if !math.IsNaN(summary.Assets[assetPriceIdx].LowBid) {
+						floor = summary.Assets[assetPriceIdx].LowBid
+					}
+				}
+
+				spread := ceiling - floor
 
 				summary.Assets[assetPriceIdx] = AssetPrice{
 					Name:      assetPrice.Name,
