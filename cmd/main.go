@@ -27,6 +27,6 @@ func main() {
 	logLevel, _ := log.ParseLevel(app.LogLevel)
 	log.SetLevel(logLevel)
 
-	order.StartListener(app)
 	prices.StartListener(app)
+	order.StartListener(app)
 }
