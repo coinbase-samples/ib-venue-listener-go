@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
-	ws "github.com/coinbase-samples/ib-venue-listener-go/websocket"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	"github.com/coinbase-samples/ib-venue-listener-go/prime"
@@ -24,7 +23,7 @@ func RunListener(app config.AppConfig) {
 }
 
 func processMessage(app config.AppConfig, message []byte) error {
-	var ud = &Update{}
+	var ud = &prime.OrderUpdate{}
 	if err := json.Unmarshal(message, ud); err != nil {
 		return fmt.Errorf("Unable to umarshal json: %s - msg: %v", string(message), err)
 	}
@@ -49,15 +48,21 @@ func processMessages(app config.AppConfig, c *websocket.Conn) error {
 
 func processMessagesWithReconnect(app config.AppConfig) {
 	for {
-		c, err := ws.DialWebSocket(context.TODO(), app)
+		c, err := prime.DialWebSocket(context.TODO(), app)
 		if err != nil {
 			log.Error(err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
 
-		if err := c.WriteMessage(websocket.TextMessage, []byte(subscribeOrdersString(app))); err != nil {
-			log.Errorf("Unable to subscribe: %v", err)
+		if err := c.WriteMessage(websocket.TextMessage, subscribeOrdersString(app)); err != nil {
+			log.Errorf("Unable to subscribe to orders feed: %v", err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		if err := c.WriteMessage(websocket.TextMessage, prime.HeartbeatSubscriptionMsg(app)); err != nil {
+			log.Errorf("Unable to subscribe to heartbeats: %v", err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -68,7 +73,7 @@ func processMessagesWithReconnect(app config.AppConfig) {
 	}
 }
 
-func subscribeOrdersString(app config.AppConfig) string {
+func subscribeOrdersMsg(app config.AppConfig) []byte {
 	msgType := "subscribe"
 	channel := "orders"
 	key := app.AccessKey
@@ -77,7 +82,7 @@ func subscribeOrdersString(app config.AppConfig) string {
 	dt := time.Now().UTC()
 	msgTime := dt.Format(time.RFC3339)
 	signature := prime.Sign(channel, key, accountId, msgTime, portfolioId, "", app.SigningKey)
-	message := fmt.Sprintf(`{
+	return []byte(fmt.Sprintf(`{
         "type": "%s",
         "channel": "%s",
         "access_key": "%s",
@@ -86,16 +91,23 @@ func subscribeOrdersString(app config.AppConfig) string {
         "signature": "%s",
         "passphrase": "%s",
         "timestamp": "%s"
-      }`, msgType, channel, key, accountId, portfolioId, signature, app.Passphrase, msgTime)
-	return message
+      }`, msgType, channel, key, accountId, portfolioId, signature, app.Passphrase, msgTime))
 }
 
 func writeOrderUpdatesToEventBus(
 	app config.AppConfig,
-	orderUpdate *Update,
+	orderUpdate *prime.OrderUpdate,
 ) {
 	// loop in loop because everything is an array for some reason
 	for _, event := range orderUpdate.Events {
+
+		if event.Type == "error" {
+			if len(event.Message) > 0 {
+				log.Errorf("Orders channel error: %s", event.Message)
+			}
+			continue
+		}
+
 		for _, order := range event.Orders {
 			val, err := json.Marshal(order)
 			if err != nil {

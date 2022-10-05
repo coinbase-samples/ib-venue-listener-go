@@ -12,7 +12,6 @@ import (
 	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	"github.com/coinbase-samples/ib-venue-listener-go/prime"
-	ws "github.com/coinbase-samples/ib-venue-listener-go/websocket"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -71,15 +70,21 @@ func RunListener(app config.AppConfig) {
 
 func processMessagesWithReconnect(app config.AppConfig) {
 	for {
-		c, err := ws.DialWebSocket(context.TODO(), app)
+		c, err := prime.DialWebSocket(context.TODO(), app)
 		if err != nil {
 			log.Error(err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
 
-		if err := c.WriteMessage(websocket.TextMessage, []byte(subscribePricesString(app))); err != nil {
-			log.Errorf("Unable to subscribe: %v", err)
+		if err := c.WriteMessage(websocket.TextMessage, subscribePricesMsg(app)); err != nil {
+			log.Errorf("Unable to subscribe to price feed: %v", err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		if err := c.WriteMessage(websocket.TextMessage, prime.HeartbeatSubscriptionMsg(app)); err != nil {
+			log.Errorf("Unable to subscribe to heartbeats: %v", err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -90,8 +95,15 @@ func processMessagesWithReconnect(app config.AppConfig) {
 	}
 }
 
-func processOrderBookUpdate(ud *OrderBookUpdate) {
+func processOrderBookUpdates(ud *prime.OrderBookUpdate) {
 	for _, row := range ud.Events {
+
+		if row.Type == "error" {
+			if len(row.Message) > 0 {
+				log.Errorf("Prices channel error: %s", row.Message)
+			}
+			continue
+		}
 
 		product := row.ProductID
 
@@ -147,12 +159,12 @@ func processOrderBookUpdate(ud *OrderBookUpdate) {
 }
 
 func processMessage(message []byte) error {
-	var ud = &OrderBookUpdate{}
+	var ud = &prime.OrderBookUpdate{}
 	if err := json.Unmarshal(message, ud); err != nil {
 		return fmt.Errorf("Unable to umarshal json: %s - msg: %v", string(message), err)
 	}
 
-	processOrderBookUpdate(ud)
+	processOrderBookUpdates(ud)
 
 	return nil
 }
@@ -212,7 +224,7 @@ func writeAssetPriceToEventBus(
 	}
 }
 
-func subscribePricesString(app config.AppConfig) string {
+func subscribePricesMsg(app config.AppConfig) []byte {
 	msgType := "subscribe"
 	channel := "l2_data"
 	key := app.AccessKey
@@ -224,7 +236,7 @@ func subscribePricesString(app config.AppConfig) string {
 
 	signature := prime.Sign(channel, key, accountId, msgTime, "", productIds, app.SigningKey)
 
-	message := fmt.Sprintf(`{
+	return []byte(fmt.Sprintf(`{
 		"type": "%s",
 		"channel": "%s",
 		"product_ids": %s,
@@ -233,7 +245,5 @@ func subscribePricesString(app config.AppConfig) string {
 		"signature": "%s",
 		"passphrase": "%s",
 		"timestamp": "%s" }`,
-		msgType, channel, productIds, key, accountId, signature, app.Passphrase, msgTime)
-
-	return message
+		msgType, channel, productIds, key, accountId, signature, app.Passphrase, msgTime))
 }
