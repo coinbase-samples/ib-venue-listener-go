@@ -5,6 +5,7 @@ import (
 	"os/signal"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
+	"github.com/coinbase-samples/ib-venue-listener-go/order"
 	"github.com/coinbase-samples/ib-venue-listener-go/prices"
 	log "github.com/sirupsen/logrus"
 )
@@ -28,9 +29,10 @@ func main() {
 	run := make(chan os.Signal, 1)
 	signal.Notify(run, os.Interrupt)
 
+	// TODO: Implement and pass context to stop
 	go prices.RunListener(app)
 
-	//go order.RunListener(app)
+	go order.RunListener(app)
 
 	<-run
 }
