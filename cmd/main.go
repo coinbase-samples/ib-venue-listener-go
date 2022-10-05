@@ -5,7 +5,6 @@ import (
 	"os/signal"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
-	"github.com/coinbase-samples/ib-venue-listener-go/order"
 	"github.com/coinbase-samples/ib-venue-listener-go/prices"
 	log "github.com/sirupsen/logrus"
 )
@@ -31,7 +30,7 @@ func main() {
 
 	go prices.RunListener(app)
 
-	go order.RunListener(app)
+	//go order.RunListener(app)
 
 	<-run
 }
