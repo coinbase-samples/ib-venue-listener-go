@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
-	"os/signal"
 	"strconv"
 	"time"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	"github.com/coinbase-samples/ib-venue-listener-go/prime"
+	ws "github.com/coinbase-samples/ib-venue-listener-go/websocket"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -62,22 +61,17 @@ var prices = PriceSummary{
 
 func RunListener(app config.AppConfig) {
 
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
+	// TODO: Implement a context for cancel / shutdown
 
 	go emitPriceUpdates(app)
 
-	go processMessagesWithReconnect(app)
+	processMessagesWithReconnect(app)
 
-	select {
-	case <-interrupt:
-		return
-	}
 }
 
 func processMessagesWithReconnect(app config.AppConfig) {
 	for {
-		c, err := dialWebSocket(context.TODO(), app)
+		c, err := ws.DialWebSocket(context.TODO(), app)
 		if err != nil {
 			log.Error(err)
 			time.Sleep(2 * time.Second)
@@ -96,71 +90,82 @@ func processMessagesWithReconnect(app config.AppConfig) {
 	}
 }
 
-func processMessages(app config.AppConfig, c *websocket.Conn) error {
+func processOrderBookUpdate(ud *OrderBookUpdate) {
+	for _, row := range ud.Events {
 
+		product := row.ProductID
+
+		assetPriceIdx := slices.IndexFunc(
+			prices.Assets,
+			func(a AssetPrice) bool { return a.Ticker == product },
+		)
+
+		if assetPriceIdx == -1 {
+			continue
+		}
+
+		assetPrice := prices.Assets[assetPriceIdx]
+
+		floor, ceiling := math.NaN(), math.NaN()
+
+		for _, row := range row.Updates {
+
+			if row.Qty == "0" {
+				continue
+			}
+
+			rowPrice, _ := strconv.ParseFloat(row.Px, 32)
+
+			if row.Side == "offer" && (math.IsNaN(floor) || rowPrice < floor) {
+
+				floor = rowPrice
+
+			} else if row.Side == "bid" && (math.IsNaN(ceiling) || rowPrice > ceiling) {
+
+				ceiling = rowPrice
+			}
+		}
+
+		if math.IsNaN(ceiling) && !math.IsNaN(prices.Assets[assetPriceIdx].HighOffer) {
+			ceiling = prices.Assets[assetPriceIdx].HighOffer
+		}
+
+		if math.IsNaN(floor) && !math.IsNaN(prices.Assets[assetPriceIdx].LowBid) {
+			floor = prices.Assets[assetPriceIdx].LowBid
+		}
+
+		spread := ceiling - floor
+
+		prices.Assets[assetPriceIdx] = AssetPrice{
+			Name:      assetPrice.Name,
+			Ticker:    assetPrice.Ticker,
+			HighOffer: ceiling,
+			LowBid:    floor,
+			Spread:    spread,
+		}
+	}
+}
+
+func processMessage(message []byte) error {
+	var ud = &OrderBookUpdate{}
+	if err := json.Unmarshal(message, ud); err != nil {
+		return fmt.Errorf("Unable to umarshal json: %s - msg: %v", string(message), err)
+	}
+
+	processOrderBookUpdate(ud)
+
+	return nil
+}
+
+func processMessages(app config.AppConfig, c *websocket.Conn) error {
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
 			return fmt.Errorf("Problem reading msg: %v", err)
 		}
 
-		var ud = &OrderBookUpdate{}
-		if err := json.Unmarshal(message, ud); err != nil {
-			return fmt.Errorf("Unable to umarshal json: %s - msg: %v", string(message), err)
-		}
-
-		for _, row := range ud.Events {
-
-			product := row.ProductID
-
-			assetPriceIdx := slices.IndexFunc(
-				prices.Assets,
-				func(a AssetPrice) bool { return a.Ticker == product },
-			)
-
-			if assetPriceIdx == -1 {
-				continue
-			}
-
-			assetPrice := prices.Assets[assetPriceIdx]
-
-			floor, ceiling := math.NaN(), math.NaN()
-
-			for _, row := range row.Updates {
-
-				if row.Qty == "0" {
-					continue
-				}
-
-				rowPrice, _ := strconv.ParseFloat(row.Px, 32)
-
-				if row.Side == "offer" && (math.IsNaN(floor) || rowPrice < floor) {
-
-					floor = rowPrice
-
-				} else if row.Side == "bid" && (math.IsNaN(ceiling) || rowPrice > ceiling) {
-
-					ceiling = rowPrice
-				}
-			}
-
-			if math.IsNaN(ceiling) && !math.IsNaN(prices.Assets[assetPriceIdx].HighOffer) {
-				ceiling = prices.Assets[assetPriceIdx].HighOffer
-			}
-
-			if math.IsNaN(floor) && !math.IsNaN(prices.Assets[assetPriceIdx].LowBid) {
-				floor = prices.Assets[assetPriceIdx].LowBid
-			}
-
-			spread := ceiling - floor
-
-			prices.Assets[assetPriceIdx] = AssetPrice{
-				Name:      assetPrice.Name,
-				Ticker:    assetPrice.Ticker,
-				HighOffer: ceiling,
-				LowBid:    floor,
-				Spread:    spread,
-			}
+		if err := processMessage(message); err != nil {
+			return err
 		}
 	}
 }

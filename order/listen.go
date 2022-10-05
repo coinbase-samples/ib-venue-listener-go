@@ -5,13 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"os"
-	"os/signal"
 	"time"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
-	"github.com/recws-org/recws"
+	ws "github.com/coinbase-samples/ib-venue-listener-go/websocket"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	"github.com/coinbase-samples/ib-venue-listener-go/prime"
@@ -20,63 +17,50 @@ import (
 )
 
 func RunListener(app config.AppConfig) {
-	//Create Message Out
-	messageOut := make(chan string)
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
+	processMessagesWithReconnect(app)
+}
 
-	u := url.URL{Scheme: "wss", Host: app.PrimeApiUrl}
+func processMessage(app config.AppConfig, message []byte) error {
+	var ud = &Update{}
+	if err := json.Unmarshal(message, ud); err != nil {
+		return fmt.Errorf("Unable to umarshal json: %s - msg: %v", string(message), err)
+	}
 
-	log.Printf("connecting to %s", u.String())
-	ctx, _ := context.WithCancel(context.Background())
-	ws := recws.RecConn{}
-	ws.Dial(u.String(), nil)
+	writeOrderUpdatesToEventBus(app, ud)
 
-	//When the program closes, close the connection
-	defer ws.Close()
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		messageOut <- subscribeOrdersString(app)
-		for {
-			_, message, err := ws.ReadMessage()
-			if err != nil {
-				log.Error("read:", err)
-				return
-			}
+	return nil
+}
 
-			var ud = &Update{}
-			err = json.Unmarshal(message, &ud)
-			writeOrderUpdatesToEventBus(app, ud)
-		}
-	}()
-
+func processMessages(app config.AppConfig, c *websocket.Conn) error {
 	for {
-		select {
-		case <-ctx.Done():
-			log.Printf("Websocket closed %s", ws.GetURL())
-			return
-		case m := <-messageOut:
-			log.Printf("Send Message %s", m)
-			err := ws.WriteMessage(websocket.TextMessage, []byte(m))
-			if err != nil {
-				log.Println("write:", err)
-				return
-			}
-		case <-interrupt:
-			log.Println("interrupt")
-			// Cleanly close the connection by sending a close message and then
-			// waiting (with timeout) for the server to close the connection.
-			err := ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				log.Println("write close:", err)
-				return
-			}
-			select {
-			case <-ctx.Done():
-			case <-time.After(time.Second):
-			}
-			return
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			return fmt.Errorf("Problem reading msg: %v", err)
+		}
+
+		if err := processMessage(app, message); err != nil {
+			return err
+		}
+	}
+}
+
+func processMessagesWithReconnect(app config.AppConfig) {
+	for {
+		c, err := ws.DialWebSocket(context.TODO(), app)
+		if err != nil {
+			log.Error(err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		if err := c.WriteMessage(websocket.TextMessage, []byte(subscribeOrdersString(app))); err != nil {
+			log.Errorf("Unable to subscribe: %v", err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		if err := processMessages(app, c); err != nil {
+			log.Error(err)
 		}
 	}
 }
@@ -95,7 +79,7 @@ func subscribeOrdersString(app config.AppConfig) string {
         "channel": "%s",
         "access_key": "%s",
         "api_key_id": "%s",
-		"portfolio_id": "%s",
+				"portfolio_id": "%s",
         "signature": "%s",
         "passphrase": "%s",
         "timestamp": "%s"
