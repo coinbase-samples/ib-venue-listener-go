@@ -89,11 +89,9 @@ func StartListener(app config.AppConfig) {
 		for {
 			select {
 			case <-ticker.C:
-
 				for _, asset := range summary.Assets {
 					writeAssetPriceToEventBus(app, asset)
 				}
-
 			case <-quit:
 				ticker.Stop()
 				return
