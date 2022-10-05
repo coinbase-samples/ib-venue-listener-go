@@ -101,7 +101,7 @@ func StartListener(app config.AppConfig) {
 		}
 	}()
 
-	// When the program closes close the connection
+	// When the program closes, close the connection
 	defer c.Close()
 	done := make(chan struct{})
 	go func() {
