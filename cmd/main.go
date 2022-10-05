@@ -1,14 +1,13 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	"github.com/coinbase-samples/ib-venue-listener-go/order"
 	"github.com/coinbase-samples/ib-venue-listener-go/prices"
 	log "github.com/sirupsen/logrus"
-)
-
-var (
-	logrusLogger = log.New()
 )
 
 func main() {
@@ -27,6 +26,12 @@ func main() {
 	logLevel, _ := log.ParseLevel(app.LogLevel)
 	log.SetLevel(logLevel)
 
-	prices.StartListener(app)
-	order.StartListener(app)
+	run := make(chan os.Signal, 1)
+	signal.Notify(run, os.Interrupt)
+
+	go prices.RunListener(app)
+
+	go order.RunListener(app)
+
+	<-run
 }

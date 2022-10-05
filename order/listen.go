@@ -5,12 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
-	"github.com/recws-org/recws"
 	"net/url"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
+	"github.com/recws-org/recws"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	"github.com/coinbase-samples/ib-venue-listener-go/prime"
@@ -18,7 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func StartListener(app config.AppConfig) {
+func RunListener(app config.AppConfig) {
 	//Create Message Out
 	messageOut := make(chan string)
 	interrupt := make(chan os.Signal, 1)

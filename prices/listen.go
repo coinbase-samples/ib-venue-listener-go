@@ -20,7 +20,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func StartListener(app config.AppConfig) {
+func RunListener(app config.AppConfig) {
 	//Create Message Out
 	messageOut := make(chan string)
 	interrupt := make(chan os.Signal, 1)
