@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -20,188 +19,160 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+var prices = PriceSummary{
+	Assets: []AssetPrice{
+		{
+			Name:      "Bitcoin",
+			Ticker:    "BTC-USD",
+			HighOffer: math.NaN(),
+			LowBid:    math.NaN(),
+			Spread:    math.NaN(),
+		}, {
+			Name:      "Ethereum",
+			Ticker:    "ETH-USD",
+			HighOffer: math.NaN(),
+			LowBid:    math.NaN(),
+			Spread:    math.NaN(),
+		}, {
+			Name:      "Solana",
+			Ticker:    "SOL-USD",
+			HighOffer: math.NaN(),
+			LowBid:    math.NaN(),
+			Spread:    math.NaN(),
+		}, {
+			Name:      "Cosmos",
+			Ticker:    "ATOM-USD",
+			HighOffer: math.NaN(),
+			LowBid:    math.NaN(),
+			Spread:    math.NaN(),
+		}, {
+			Name:      "Polygon",
+			Ticker:    "MATIC-USD",
+			HighOffer: math.NaN(),
+			LowBid:    math.NaN(),
+			Spread:    math.NaN(),
+		}, {
+			Name:      "Cardano",
+			Ticker:    "ADA-USD",
+			HighOffer: math.NaN(),
+			LowBid:    math.NaN(),
+			Spread:    math.NaN(),
+		},
+	}}
+
 func RunListener(app config.AppConfig) {
-	//Create Message Out
-	messageOut := make(chan string)
+
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	u := url.URL{Scheme: "wss", Host: app.PrimeApiUrl}
+	go emitPriceUpdates(app)
 
-	log.Infof("Connecting to %s", u.String())
+	go processMessagesWithReconnect(app)
 
-	c, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		// NOTE: resp is nil if there is an error
-		//log.Printf("handshake failed with status %d", resp.StatusCode)
-		log.Fatalf("Cannot dial WebSocket: %v", err)
+	select {
+	case <-interrupt:
+		return
 	}
+}
 
-	// TODO: What is the expected response status code?
-	if resp == nil {
-
-	}
-
-	summary := PriceSummary{
-		Assets: []AssetPrice{
-			{
-				Name:      "Bitcoin",
-				Ticker:    "BTC-USD",
-				HighOffer: math.NaN(),
-				LowBid:    math.NaN(),
-				Spread:    math.NaN(),
-			}, {
-				Name:      "Ethereum",
-				Ticker:    "ETH-USD",
-				HighOffer: math.NaN(),
-				LowBid:    math.NaN(),
-				Spread:    math.NaN(),
-			}, {
-				Name:      "Solana",
-				Ticker:    "SOL-USD",
-				HighOffer: math.NaN(),
-				LowBid:    math.NaN(),
-				Spread:    math.NaN(),
-			}, {
-				Name:      "Cosmos",
-				Ticker:    "ATOM-USD",
-				HighOffer: math.NaN(),
-				LowBid:    math.NaN(),
-				Spread:    math.NaN(),
-			}, {
-				Name:      "Polygon",
-				Ticker:    "MATIC-USD",
-				HighOffer: math.NaN(),
-				LowBid:    math.NaN(),
-				Spread:    math.NaN(),
-			}, {
-				Name:      "Cardano",
-				Ticker:    "ADA-USD",
-				HighOffer: math.NaN(),
-				LowBid:    math.NaN(),
-				Spread:    math.NaN(),
-			},
-		}}
-
-	ticker := time.NewTicker(1 * time.Second)
-	quit := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				for _, asset := range summary.Assets {
-					writeAssetPriceToEventBus(app, asset)
-				}
-			case <-quit:
-				ticker.Stop()
-				return
-			}
+func processMessagesWithReconnect(app config.AppConfig) {
+	for {
+		c, err := dialWebSocket(context.TODO(), app)
+		if err != nil {
+			log.Error(err)
+			time.Sleep(2 * time.Second)
+			continue
 		}
-	}()
 
-	// When the program closes, close the connection
-	defer c.Close()
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		messageOut <- subscribePricesString(app)
-		for {
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				log.Errorf("read message: %v", err)
-				return
+		if err := c.WriteMessage(websocket.TextMessage, []byte(subscribePricesString(app))); err != nil {
+			log.Errorf("Unable to subscribe: %v", err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		if err := processMessages(app, c); err != nil {
+			log.Error(err)
+		}
+	}
+}
+
+func processMessages(app config.AppConfig, c *websocket.Conn) error {
+
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			return fmt.Errorf("Problem reading msg: %v", err)
+		}
+
+		var ud = &OrderBookUpdate{}
+		if err := json.Unmarshal(message, ud); err != nil {
+			return fmt.Errorf("Unable to umarshal json: %s - msg: %v", string(message), err)
+		}
+
+		for _, row := range ud.Events {
+
+			product := row.ProductID
+
+			assetPriceIdx := slices.IndexFunc(
+				prices.Assets,
+				func(a AssetPrice) bool { return a.Ticker == product },
+			)
+
+			if assetPriceIdx == -1 {
+				continue
 			}
 
-			var ud = &OrderBookUpdate{}
-			err = json.Unmarshal(message, &ud)
-			if err != nil {
-				log.Error("unable to umarshal json %v", message, err)
-				return
-			}
+			assetPrice := prices.Assets[assetPriceIdx]
 
-			for _, row := range ud.Events {
+			floor, ceiling := math.NaN(), math.NaN()
 
-				product := row.ProductID
+			for _, row := range row.Updates {
 
-				assetPriceIdx := slices.IndexFunc(summary.Assets, func(a AssetPrice) bool { return a.Ticker == product })
-
-				if assetPriceIdx == -1 {
+				if row.Qty == "0" {
 					continue
 				}
 
-				assetPrice := summary.Assets[assetPriceIdx]
+				rowPrice, _ := strconv.ParseFloat(row.Px, 32)
 
-				floor, ceiling := math.NaN(), math.NaN()
+				if row.Side == "offer" && (math.IsNaN(floor) || rowPrice < floor) {
 
-				for _, row := range row.Updates {
+					floor = rowPrice
 
-					if row.Qty == "0" {
-						continue
-					}
+				} else if row.Side == "bid" && (math.IsNaN(ceiling) || rowPrice > ceiling) {
 
-					rowPrice, _ := strconv.ParseFloat(row.Px, 32)
-
-					if row.Side == "offer" && (math.IsNaN(floor) || rowPrice < floor) {
-
-						floor = rowPrice
-
-					} else if row.Side == "bid" && (math.IsNaN(ceiling) || rowPrice > ceiling) {
-
-						ceiling = rowPrice
-					}
+					ceiling = rowPrice
 				}
+			}
 
-				if math.IsNaN(ceiling) {
-					if !math.IsNaN(summary.Assets[assetPriceIdx].HighOffer) {
-						ceiling = summary.Assets[assetPriceIdx].HighOffer
-					}
-				}
+			if math.IsNaN(ceiling) && !math.IsNaN(prices.Assets[assetPriceIdx].HighOffer) {
+				ceiling = prices.Assets[assetPriceIdx].HighOffer
+			}
 
-				if math.IsNaN(floor) {
-					if !math.IsNaN(summary.Assets[assetPriceIdx].LowBid) {
-						floor = summary.Assets[assetPriceIdx].LowBid
-					}
-				}
+			if math.IsNaN(floor) && !math.IsNaN(prices.Assets[assetPriceIdx].LowBid) {
+				floor = prices.Assets[assetPriceIdx].LowBid
+			}
 
-				spread := ceiling - floor
+			spread := ceiling - floor
 
-				summary.Assets[assetPriceIdx] = AssetPrice{
-					Name:      assetPrice.Name,
-					Ticker:    assetPrice.Ticker,
-					HighOffer: ceiling,
-					LowBid:    floor,
-					Spread:    spread,
-				}
+			prices.Assets[assetPriceIdx] = AssetPrice{
+				Name:      assetPrice.Name,
+				Ticker:    assetPrice.Ticker,
+				HighOffer: ceiling,
+				LowBid:    floor,
+				Spread:    spread,
 			}
 		}
+	}
+}
 
-	}()
-
+func emitPriceUpdates(app config.AppConfig) {
+	ticker := time.NewTicker(1 * time.Second)
 	for {
 		select {
-		case <-done:
-			return
-		case m := <-messageOut:
-			log.Printf("Send Message %s", m)
-			err := c.WriteMessage(websocket.TextMessage, []byte(m))
-			if err != nil {
-				log.Errorf("Write: %v", err)
-				return
+		case <-ticker.C:
+			for _, asset := range prices.Assets {
+				writeAssetPriceToEventBus(app, asset)
 			}
-		case <-interrupt:
-			log.Debug("Interrupt received")
-			// Cleanly close the connection by sending a close message and then
-			// waiting (with timeout) for the server to close the connection.
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				log.Infof("Write close: %v", err)
-				return
-			}
-			select {
-			case <-done:
-			case <-time.After(time.Second):
-			}
-			return
 		}
 	}
 }
@@ -210,7 +181,6 @@ func writeAssetPriceToEventBus(
 	app config.AppConfig,
 	asset AssetPrice,
 ) {
-
 	if asset.NotSet() {
 		return
 	}
@@ -245,8 +215,7 @@ func subscribePricesString(app config.AppConfig) string {
 
 	productIds := `["BTC-USD", "ETH-USD", "ADA-USD", "MATIC-USD", "ATOM-USD", "SOL-USD"]`
 
-	t := time.Now()
-	msgTime := t.UTC().Format(time.RFC3339)
+	msgTime := time.Now().UTC().Format(time.RFC3339)
 
 	signature := prime.Sign(channel, key, accountId, msgTime, "", productIds, app.SigningKey)
 
@@ -260,11 +229,6 @@ func subscribePricesString(app config.AppConfig) string {
 		"passphrase": "%s",
 		"timestamp": "%s" }`,
 		msgType, channel, productIds, key, accountId, signature, app.Passphrase, msgTime)
-
-	if app.IsLocalEnv() {
-		//log.Debug("message %v", message)
-
-	}
 
 	return message
 }
