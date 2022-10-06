@@ -9,6 +9,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -29,6 +30,7 @@ func KdsPutRecord(
 		return err
 	}
 
+	log.Debugf("publishing record partition: %s --- stream: %s --- data: %v", partitionKey, streamName, data)
 	_, err = client.PutRecord(ctx, &kinesis.PutRecordInput{
 		PartitionKey: aws.String(partitionKey),
 		StreamName:   aws.String(streamName),
@@ -51,8 +53,14 @@ func KdsClient(app config.AppConfig) (*kinesis.Client, error) {
 		return nil, fmt.Errorf("Unable to load AWS SDK config: %v", err)
 	}
 
-	kinesisClient = kinesis.NewFromConfig(cfg)
-
+	if app.IsLocalEnv() {
+		conn := fmt.Sprintf("http://%s:4566", app.LocalStackHostname)
+		kinesisClient = kinesis.NewFromConfig(cfg, func(o *kinesis.Options) {
+			o.EndpointResolver = kinesis.EndpointResolverFromURL(conn)
+		})
+	} else {
+		kinesisClient = kinesis.NewFromConfig(cfg)
+	}
 	return kinesisClient, nil
 
 }

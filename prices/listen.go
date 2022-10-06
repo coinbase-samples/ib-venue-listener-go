@@ -79,12 +79,14 @@ func processMessagesWithReconnect(app config.AppConfig) {
 			continue
 		}
 
+		log.Debugf("starting price subscription to -%v", productIds)
 		if err := c.WriteMessage(websocket.TextMessage, prime.PricesSubscriptionMsg(app, productIds)); err != nil {
 			log.Errorf("Unable to subscribe to price feed: %v", err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
 
+		log.Debugf("starting heartbeat subscription")
 		if err := c.WriteMessage(websocket.TextMessage, prime.HeartbeatSubscriptionMsg(app)); err != nil {
 			log.Errorf("Unable to subscribe to heartbeats: %v", err)
 			time.Sleep(2 * time.Second)

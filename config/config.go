@@ -3,12 +3,15 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"os"
 )
 
 type AppConfig struct {
+	//Local Only
+	LocalStackHostname     string `mapstructure:"LOCALSTACK_HOSTNAME"`
 	Env                    string `mapstructure:"ENV_NAME"`
 	LogLevel               string `mapstructure:"LOG_LEVEL"`
 	AccessKey              string `mapstructure:"ACCESS_KEY"`
@@ -38,6 +41,7 @@ func Setup(app *AppConfig) error {
 	viper.AllowEmptyEnv(true)
 
 	// Set defaults
+	viper.SetDefault("LOCALSTACK_HOSTNAME", "")
 	viper.SetDefault("LOG_LEVEL", "warning")
 	viper.SetDefault("PORT", "8443")
 	viper.SetDefault("ENV_NAME", "local")
