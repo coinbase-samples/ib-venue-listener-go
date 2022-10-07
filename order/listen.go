@@ -29,9 +29,11 @@ func processMessage(app config.AppConfig, message []byte) error {
 	}
 
 	log.Debugf("parsed order message - %v", ud)
-	log.Warnf("parsed order message - %v", ud)
-	writeOrderUpdatesToEventBus(app, ud)
 
+	// filter out heartbeat or subscriptions
+	if ud.Channel == "orders" {
+		writeOrderUpdatesToEventBus(app, ud)
+	}
 	return nil
 }
 
