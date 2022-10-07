@@ -28,6 +28,8 @@ func processMessage(app config.AppConfig, message []byte) error {
 		return fmt.Errorf("Unable to umarshal json: %s - msg: %v", string(message), err)
 	}
 
+	log.Debugf("parsed order message - %v", ud)
+	log.Warnf("parsed order message - %v", ud)
 	writeOrderUpdatesToEventBus(app, ud)
 
 	return nil
