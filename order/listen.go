@@ -94,7 +94,7 @@ func writeOrderUpdatesToEventBus(
 		for _, order := range event.Orders {
 			val, err := json.Marshal(order)
 			if err != nil {
-				log.Errorf("Unable to marshal asset: %v", err)
+				log.Errorf("Unable to marshal order: %v", err)
 				return
 			}
 

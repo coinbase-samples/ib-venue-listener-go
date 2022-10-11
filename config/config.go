@@ -41,10 +41,16 @@ func Setup(app *AppConfig) error {
 	viper.AllowEmptyEnv(true)
 
 	// Set defaults
-	viper.SetDefault("LOCALSTACK_HOSTNAME", "")
+	viper.SetDefault("LOCALSTACK_HOSTNAME", "localstack")
 	viper.SetDefault("LOG_LEVEL", "warning")
 	viper.SetDefault("PORT", "8443")
 	viper.SetDefault("ENV_NAME", "local")
+
+	viper.SetDefault("AWS_REGION", "us-east-1")
+	viper.SetDefault("PRICE_KDS_STREAM_NAME", "priceFeed")
+	viper.SetDefault("ORDER_KDS_STREAM_NAME", "orderFeed")
+
+	viper.SetDefault("PRIME_API_URL", "ws-feed.prime.coinbase.com")
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -64,9 +70,6 @@ func Setup(app *AppConfig) error {
 	// to set a default?
 
 	app.PrimeApiUrl = os.Getenv("PRIME_API_URL")
-	app.AwsRegion = os.Getenv("AWS_REGION")
-	app.PriceKinesisStreamName = os.Getenv("PRICE_KDS_STREAM_NAME")
-	app.OrderKinesisStreamName = os.Getenv("ORDER_KDS_STREAM_NAME")
 	app.PrimeCredentials = os.Getenv("PRIME_CREDENTIALS")
 
 	// Parse the prime credentials
