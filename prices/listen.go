@@ -214,6 +214,7 @@ func writeAssetPriceToEventBus(
 
 	if !app.IsLocalEnv() {
 		Repo.HandlePriceUpdate(context.TODO(), asset)
+		return
 	}
 
 	val, err := json.Marshal(asset)
