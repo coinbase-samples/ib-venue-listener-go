@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.16.16
 	github.com/aws/aws-sdk-go-v2/config v1.17.7
 	github.com/aws/aws-sdk-go-v2/service/kinesis v1.15.19
+	github.com/aws/aws-sdk-go-v2/service/sqs v1.19.10
 	github.com/gorilla/websocket v1.5.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/viper v1.12.0
