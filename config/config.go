@@ -25,6 +25,7 @@ type AppConfig struct {
 	PriceKinesisStreamName string `mapstructure:"PRICE_KDS_STREAM_NAME"`
 	OrderKinesisStreamName string `mapstructure:"ORDER_KDS_STREAM_NAME"`
 	AwsRegion              string `mapstructure:"AWS_REGION"`
+	OrderFillQueueUrl      string `mapstructure:"ORDER_FILL_QUEUE_URL"`
 }
 
 func (a AppConfig) IsLocalEnv() bool {
@@ -49,7 +50,7 @@ func Setup(app *AppConfig) error {
 	viper.SetDefault("AWS_REGION", "us-east-1")
 	viper.SetDefault("PRICE_KDS_STREAM_NAME", "priceFeed")
 	viper.SetDefault("ORDER_KDS_STREAM_NAME", "orderFeed")
-
+	viper.SetDefault("ORDER_FILL_QUEUE_URL", "orderFillQueueUrl")
 	viper.SetDefault("PRIME_API_URL", "ws-feed.prime.coinbase.com")
 
 	err := viper.ReadInConfig()

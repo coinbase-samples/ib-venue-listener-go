@@ -103,6 +103,19 @@ func writeOrderUpdatesToEventBus(
 			dst := make([]byte, base64.StdEncoding.EncodedLen(len(val)))
 			base64.StdEncoding.Encode(dst, val)
 
+			// TODO: Move to when local is ready
+			if !app.IsLocalEnv() {
+				if err := cloud.SqsSendMessage(
+					context.Background(),
+					app,
+					app.OrderFillQueueUrl,
+					order.ClientOrderID,
+					string(val),
+				); err != nil {
+					log.Errorf("Unable to send SQS message: %v", err)
+				}
+			}
+
 			if err := cloud.KdsPutRecord(
 				context.Background(),
 				app,

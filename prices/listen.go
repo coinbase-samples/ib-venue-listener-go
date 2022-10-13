@@ -58,9 +58,15 @@ var prices = PriceSummary{
 		},
 	}}
 
+var (
+	assetCache = NewCache()
+)
+
 func RunListener(app config.AppConfig) {
 
 	// TODO: Implement a context for cancel / shutdown
+
+	NewHandlers(NewRepo(assetCache))
 
 	go emitPriceUpdates(app)
 
@@ -204,6 +210,10 @@ func writeAssetPriceToEventBus(
 ) {
 	if asset.NotSet() {
 		return
+	}
+
+	if !app.IsLocalEnv() {
+		Repo.HandlePriceUpdate(context.TODO(), asset)
 	}
 
 	val, err := json.Marshal(asset)
