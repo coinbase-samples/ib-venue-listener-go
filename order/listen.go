@@ -2,7 +2,6 @@ package order
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -93,16 +92,14 @@ func writeOrderUpdatesToEventBus(
 		}
 
 		for _, order := range event.Orders {
-			val, err := json.Marshal(order)
+
+			message := model.ConvertOrderFillMessage(order, orderUpdate.Timestamp)
+
+			val, err := json.Marshal(message)
+
 			if err != nil {
-				log.Errorf("Unable to marshal order: %v", err)
-				return
+				log.Errorf("error marshalling order fill message", err)
 			}
-
-			val = append(val, []byte("\n")...)
-
-			dst := make([]byte, base64.StdEncoding.EncodedLen(len(val)))
-			base64.StdEncoding.Encode(dst, val)
 
 			if err := cloud.SqsSendMessage(
 				context.Background(),
@@ -111,7 +108,7 @@ func writeOrderUpdatesToEventBus(
 				order.ClientOrderID,
 				string(val),
 			); err != nil {
-				log.Errorf("Unable to send SQS message: %v", err)
+				log.Errorf("unable to send SQS message: %v", err)
 			}
 
 			/*
