@@ -7,18 +7,21 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
+	"github.com/coinbase-samples/ib-venue-listener-go/dba"
+	"github.com/coinbase-samples/ib-venue-listener-go/model"
 	"github.com/coinbase-samples/ib-venue-listener-go/prime"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 )
 
-var prices = PriceSummary{
-	Assets: []AssetPrice{
+var prices = model.PriceSummary{
+	Assets: []model.AssetPrice{
 		{
 			Name:      "Bitcoin",
 			Ticker:    "BTC-USD",
@@ -58,15 +61,9 @@ var prices = PriceSummary{
 		},
 	}}
 
-var (
-	assetCache = NewCache()
-)
-
 func RunListener(app config.AppConfig) {
 
 	// TODO: Implement a context for cancel / shutdown
-
-	NewHandlers(NewRepo(assetCache))
 
 	go emitPriceUpdates(app)
 
@@ -105,7 +102,7 @@ func processMessagesWithReconnect(app config.AppConfig) {
 	}
 }
 
-func processOrderBookUpdates(ud *prime.OrderBookUpdate) {
+func processOrderBookUpdates(ud *model.OrderBookUpdate) {
 	for _, row := range ud.Events {
 
 		if row.Type == "error" {
@@ -119,7 +116,7 @@ func processOrderBookUpdates(ud *prime.OrderBookUpdate) {
 
 		assetPriceIdx := slices.IndexFunc(
 			prices.Assets,
-			func(a AssetPrice) bool { return a.Ticker == product },
+			func(a model.AssetPrice) bool { return a.Ticker == product },
 		)
 
 		if assetPriceIdx == -1 {
@@ -158,7 +155,7 @@ func processOrderBookUpdates(ud *prime.OrderBookUpdate) {
 
 		spread := ceiling - floor
 
-		prices.Assets[assetPriceIdx] = AssetPrice{
+		prices.Assets[assetPriceIdx] = model.AssetPrice{
 			Name:      assetPrice.Name,
 			Ticker:    assetPrice.Ticker,
 			HighOffer: ceiling,
@@ -169,9 +166,9 @@ func processOrderBookUpdates(ud *prime.OrderBookUpdate) {
 }
 
 func processMessage(message []byte) error {
-	var ud = &prime.OrderBookUpdate{}
+	var ud = &model.OrderBookUpdate{}
 	if err := json.Unmarshal(message, ud); err != nil {
-		return fmt.Errorf("Unable to umarshal json: %s - msg: %v", string(message), err)
+		return fmt.Errorf("unable to umarshal json: %s - msg: %v", string(message), err)
 	}
 
 	processOrderBookUpdates(ud)
@@ -183,7 +180,7 @@ func processMessages(app config.AppConfig, c *websocket.Conn) error {
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
-			return fmt.Errorf("Problem reading msg: %v", err)
+			return fmt.Errorf("problem reading msg: %v", err)
 		}
 
 		if err := processMessage(message); err != nil {
@@ -198,7 +195,8 @@ func emitPriceUpdates(app config.AppConfig) {
 		select {
 		case <-ticker.C:
 			for _, asset := range prices.Assets {
-				writeAssetPriceToEventBus(app, asset)
+				//writeAssetPriceToEventBus(app, asset)
+				HandlePriceUpdate(context.TODO(), asset)
 			}
 		}
 	}
@@ -206,14 +204,14 @@ func emitPriceUpdates(app config.AppConfig) {
 
 func writeAssetPriceToEventBus(
 	app config.AppConfig,
-	asset AssetPrice,
+	asset model.AssetPrice,
 ) {
 	if asset.NotSet() {
 		return
 	}
 
 	if !app.IsLocalEnv() {
-		Repo.HandlePriceUpdate(context.TODO(), asset)
+		HandlePriceUpdate(context.TODO(), asset)
 		return
 	}
 
@@ -237,4 +235,42 @@ func writeAssetPriceToEventBus(
 	); err != nil {
 		log.Errorf("Unable to put KDS record: %v", err)
 	}
+}
+
+func HandlePriceUpdate(ctx context.Context, assetPrice model.AssetPrice) {
+	assets, err := dba.Repo.Cache.GetAssets(ctx)
+	if err != nil {
+		log.Errorf("Unable to fetch assets: %v", err)
+		return
+	}
+
+	asset := findAsset(assetPrice.Ticker, assets)
+	if asset == nil {
+		log.Debugf("Unable to find prouct: %s", assetPrice.Ticker)
+		return
+	}
+
+	// TODO: We should be storing in atomic units
+	asset.HighOffer = fmt.Sprintf("%f", assetPrice.HighOffer)
+	asset.LowBid = fmt.Sprintf("%f", assetPrice.LowBid)
+	asset.Spread = fmt.Sprintf("%f", assetPrice.HighOffer-assetPrice.LowBid)
+
+	log.Debugf("updating asset - %v", asset)
+	if err := dba.Repo.PutAsset(ctx, asset); err != nil {
+		log.Error(err)
+	}
+
+}
+
+func findAsset(primeProductId string, assets []model.Asset) *model.Asset {
+	// TODO: Move Asset table to use the Prime product id / ticker.
+	ticker := strings.Replace(primeProductId, "-USD", "", 1)
+
+	for _, a := range assets {
+		if a.Ticker == ticker {
+			return &a
+		}
+	}
+
+	return nil
 }

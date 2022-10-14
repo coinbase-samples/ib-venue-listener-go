@@ -1,4 +1,4 @@
-package prices
+package model
 
 import (
 	"math"

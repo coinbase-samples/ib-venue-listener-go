@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
+	"github.com/coinbase-samples/ib-venue-listener-go/model"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	"github.com/coinbase-samples/ib-venue-listener-go/prime"
@@ -23,7 +24,7 @@ func RunListener(app config.AppConfig) {
 }
 
 func processMessage(app config.AppConfig, message []byte) error {
-	var ud = &prime.OrderUpdate{}
+	var ud = &model.OrderUpdate{}
 	if err := json.Unmarshal(message, ud); err != nil {
 		return fmt.Errorf("Unable to umarshal json: %s - msg: %v", string(message), err)
 	}
@@ -79,7 +80,7 @@ func processMessagesWithReconnect(app config.AppConfig) {
 
 func writeOrderUpdatesToEventBus(
 	app config.AppConfig,
-	orderUpdate *prime.OrderUpdate,
+	orderUpdate *model.OrderUpdate,
 ) {
 	// loop in loop because everything is an array for some reason
 	for _, event := range orderUpdate.Events {
@@ -103,28 +104,27 @@ func writeOrderUpdatesToEventBus(
 			dst := make([]byte, base64.StdEncoding.EncodedLen(len(val)))
 			base64.StdEncoding.Encode(dst, val)
 
-			// TODO: Move to when local is ready
-			if !app.IsLocalEnv() {
-				if err := cloud.SqsSendMessage(
-					context.Background(),
-					app,
-					app.OrderFillQueueUrl,
-					order.ClientOrderID,
-					string(val),
-				); err != nil {
-					log.Errorf("Unable to send SQS message: %v", err)
-				}
-			}
-
-			if err := cloud.KdsPutRecord(
+			if err := cloud.SqsSendMessage(
 				context.Background(),
 				app,
-				app.OrderKinesisStreamName,
+				app.OrderFillQueueUrl,
 				order.ClientOrderID,
-				dst,
+				string(val),
 			); err != nil {
-				log.Errorf("Unable to put KDS record: %v", err)
+				log.Errorf("Unable to send SQS message: %v", err)
 			}
+
+			/*
+				if err := cloud.KdsPutRecord(
+					context.Background(),
+					app,
+					app.OrderKinesisStreamName,
+					order.ClientOrderID,
+					dst,
+				); err != nil {
+					log.Errorf("Unable to put KDS record: %v", err)
+				}
+			*/
 		}
 	}
 }

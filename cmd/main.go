@@ -5,6 +5,7 @@ import (
 	"os/signal"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
+	"github.com/coinbase-samples/ib-venue-listener-go/dba"
 	"github.com/coinbase-samples/ib-venue-listener-go/order"
 	"github.com/coinbase-samples/ib-venue-listener-go/prices"
 	log "github.com/sirupsen/logrus"
@@ -25,6 +26,8 @@ func main() {
 
 	logLevel, _ := log.ParseLevel(app.LogLevel)
 	log.SetLevel(logLevel)
+
+	dba.NewDBA(dba.NewRepo(&app))
 
 	run := make(chan os.Signal, 1)
 	signal.Notify(run, os.Interrupt)

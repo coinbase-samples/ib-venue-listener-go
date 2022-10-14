@@ -1,10 +1,11 @@
-package prices
+package dba
 
 import (
 	"context"
 	"sync"
 	"time"
 
+	"github.com/coinbase-samples/ib-venue-listener-go/model"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
@@ -22,13 +23,13 @@ func SetDefaultExpiry(expires time.Duration) {
 
 // Entry an SSM entry in the cache
 type Entry struct {
-	value   []Asset
+	value   []model.Asset
 	expires time.Time
 }
 
 // Cache SSM cache which provides read access to parameters
 type Cache interface {
-	GetAssets(ctx context.Context) ([]Asset, error)
+	GetAssets(ctx context.Context) ([]model.Asset, error)
 }
 
 type cache struct {
@@ -44,7 +45,7 @@ func NewCache() Cache {
 }
 
 // GetKey retrieve a parameter from SSM and cache it.
-func (ssc *cache) GetAssets(ctx context.Context) ([]Asset, error) {
+func (ssc *cache) GetAssets(ctx context.Context) ([]model.Asset, error) {
 
 	ssc.ssm.Lock()
 	defer ssc.ssm.Unlock()
@@ -66,12 +67,12 @@ func (ssc *cache) GetAssets(ctx context.Context) ([]Asset, error) {
 	return ent.value, nil
 }
 
-func (ssc *cache) updateAssets(ctx context.Context) ([]Asset, error) {
+func (ssc *cache) updateAssets(ctx context.Context) ([]model.Asset, error) {
 	log.Debugln("updating assets from dynamo")
 
-	assets, err := LoadAssets(ctx)
+	assets, err := Repo.LoadAssets(ctx)
 	if err != nil {
-		return []Asset{}, errors.Wrapf(err, "failed to retrieve assets from dynamodb")
+		return []model.Asset{}, errors.Wrapf(err, "failed to retrieve assets from dynamodb")
 	}
 
 	ssc.ssmValues["assets"] = &Entry{
