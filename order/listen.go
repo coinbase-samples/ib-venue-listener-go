@@ -100,7 +100,7 @@ func writeOrderUpdatesToEventBus(
 			if err != nil {
 				log.Errorf("error marshalling order fill message", err)
 			}
-
+			log.Warnf("publishing order feed update - %s", val)
 			if err := cloud.SqsSendMessage(
 				context.Background(),
 				app,
