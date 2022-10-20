@@ -59,6 +59,25 @@ type OrderFillMessage struct {
 	Timestamp     time.Time `json:"timestamp"`
 }
 
+type HeartbeatMessage struct {
+	Channel     string    `json:"channel"`
+	Timestamp   time.Time `json:"timestamp"`
+	SequenceNum int       `json:"sequence_num"`
+	Events      []struct {
+		Subscriptions struct {
+			L2Data    []string `json:"l2_data"`
+			Orders    []string `json:"orders"`
+			Heartbeat []string `json:"heartbeat"`
+		} `json:"subscriptions"`
+	} `json:"events"`
+}
+
+type GenericMessage struct {
+	Channel     string    `json:"channel"`
+	Timestamp   time.Time `json:"timestamp"`
+	SequenceNum int       `json:"sequence_num"`
+}
+
 func ConvertOrderFillMessage(o OrderUpdateItem, ts time.Time) OrderFillMessage {
 	return OrderFillMessage{
 		OrderID:       o.OrderID,

@@ -6,9 +6,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func init() {
+func LogInit(app AppConfig, f *os.File) {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetReportCaller(true)
-	log.SetLevel(log.InfoLevel)
-	log.SetOutput(os.Stdout)
+	logLevel, _ := log.ParseLevel(app.LogLevel)
+	log.SetLevel(logLevel)
+
+	if app.LogToFile == "true" {
+		log.SetOutput(f)
+	} else {
+		log.SetOutput(os.Stdout)
+	}
 }

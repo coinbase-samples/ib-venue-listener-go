@@ -14,6 +14,7 @@ type AppConfig struct {
 	LocalStackHostname     string `mapstructure:"LOCALSTACK_HOSTNAME"`
 	Env                    string `mapstructure:"ENV_NAME"`
 	LogLevel               string `mapstructure:"LOG_LEVEL"`
+	LogToFile              string `mapstructure:"LOG_TO_FILE"`
 	AccessKey              string `mapstructure:"ACCESS_KEY"`
 	SenderId               string `mapstructure:"SENDER_COMPID"`
 	Passphrase             string `mapstructure:"PASSPHRASE"`
@@ -45,6 +46,7 @@ func Setup(app *AppConfig) error {
 	// Set defaults
 	viper.SetDefault("LOCALSTACK_HOSTNAME", "localstack")
 	viper.SetDefault("LOG_LEVEL", "warning")
+	viper.SetDefault("LOG_TO_FILE", "false")
 	viper.SetDefault("PORT", "8443")
 	viper.SetDefault("ENV_NAME", "local")
 
@@ -65,12 +67,10 @@ func Setup(app *AppConfig) error {
 		log.Infof("Cannot parse env file %v", err)
 	}
 
+	// If app is not local, pull prime credentials from secret manager
 	if app.IsLocalEnv() {
 		return nil
 	}
-
-	// TODO: Why aren't these being picked up by viper? Do you have
-	// to set a default?
 
 	app.PrimeApiUrl = os.Getenv("PRIME_API_URL")
 	app.PrimeCredentials = os.Getenv("PRIME_CREDENTIALS")
