@@ -67,6 +67,7 @@ func processMessagesWithReconnect(app config.AppConfig, interrupt chan os.Signal
 
 	done := make(chan struct{})
 	for {
+		log.Warnf("connecting websocket to %s", app.PrimeApiUrl)
 		c, err := prime.DialWebSocket(context.TODO(), app)
 
 		if err != nil {
@@ -79,6 +80,7 @@ func processMessagesWithReconnect(app config.AppConfig, interrupt chan os.Signal
 		sendSubscribeMessages(app, c)
 		if err := processMessages(app, c, done); err != nil {
 			log.Error(err)
+			continue
 		}
 
 		for {
