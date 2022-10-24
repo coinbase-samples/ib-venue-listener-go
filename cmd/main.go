@@ -166,10 +166,12 @@ func processMessages(app config.AppConfig, c *websocket.Conn, done chan struct{}
 		_, message, err := c.ReadMessage()
 		//log.Debugf("received raw message - %s", string(message))
 		if err != nil {
+			log.Warnf("error reading message: %v - websocket - %v", message, c)
 			return fmt.Errorf("problem reading msg: %v", err)
 		}
 
 		if err := processMessage(app, message); err != nil {
+			log.Warnf("error processing message: %v - websocket - %v", message, c)
 			return err
 		}
 	}
