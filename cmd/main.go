@@ -75,7 +75,14 @@ func processMessagesWithReconnect(app config.AppConfig, interrupt chan os.Signal
 			time.Sleep(2 * time.Second)
 			continue
 		}
-		defer c.Close()
+		defer func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Errorf("Recovered in closing ws", r)
+				}
+			}()
+			c.Close()
+		}()
 
 		sendSubscribeMessages(app, c)
 		if err := processMessages(app, c, done); err != nil {
