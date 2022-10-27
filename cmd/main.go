@@ -174,7 +174,8 @@ func processMessages(app config.AppConfig, c *websocket.Conn, done chan struct{}
 		//log.Debugf("received raw message - %s", string(message))
 		if err != nil {
 			log.Warnf("error reading message: %v - websocket - %v", message, c)
-			return fmt.Errorf("problem reading msg: %v", err)
+			//return fmt.Errorf("problem reading msg: %v", err)
+			continue
 		}
 
 		if err := processMessage(app, message); err != nil {
