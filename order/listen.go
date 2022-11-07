@@ -20,12 +20,12 @@ func ProcessOrderMessage(app config.AppConfig, message []byte) error {
 
 	log.Debugf("parsed order message - %v", ud)
 
-	writeOrderUpdatesToEventBus(app, ud)
+	writeOrderUpdatesToQueue(app, ud)
 
 	return nil
 }
 
-func writeOrderUpdatesToEventBus(
+func writeOrderUpdatesToQueue(
 	app config.AppConfig,
 	orderUpdate *model.OrderUpdate,
 ) {
