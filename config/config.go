@@ -11,23 +11,21 @@ import (
 
 type AppConfig struct {
 	//Local Only
-	LocalStackHostname     string `mapstructure:"LOCALSTACK_HOSTNAME"`
-	Env                    string `mapstructure:"ENV_NAME"`
-	LogLevel               string `mapstructure:"LOG_LEVEL"`
-	LogToFile              string `mapstructure:"LOG_TO_FILE"`
-	AccessKey              string `mapstructure:"ACCESS_KEY"`
-	SenderId               string `mapstructure:"SENDER_COMPID"`
-	Passphrase             string `mapstructure:"PASSPHRASE"`
-	SigningKey             string `mapstructure:"SIGNING_KEY"`
-	SessionKey             string `mapstructure:"SESSION_KEY"`
-	PrimeApiUrl            string `mapstructure:"PRIME_API_URL"`
-	PortfolioId            string `mapstructure:"PORTFOLIO_ID"`
-	PrimeCredentials       string `mapstructure:"PRIME_CREDENTIALS"`
-	PriceKinesisStreamName string `mapstructure:"PRICE_KDS_STREAM_NAME"`
-	OrderKinesisStreamName string `mapstructure:"ORDER_KDS_STREAM_NAME"`
-	AwsRegion              string `mapstructure:"AWS_REGION"`
-	OrderFillQueueUrl      string `mapstructure:"ORDER_FILL_QUEUE_URL"`
-	AssetTableName         string `mapstructure:"PRODUCT_PRICE_TABLE_NAME"`
+	LocalStackHostname string `mapstructure:"LOCALSTACK_HOSTNAME"`
+	Env                string `mapstructure:"ENV_NAME"`
+	LogLevel           string `mapstructure:"LOG_LEVEL"`
+	LogToFile          string `mapstructure:"LOG_TO_FILE"`
+	AccessKey          string `mapstructure:"ACCESS_KEY"`
+	SenderId           string `mapstructure:"SENDER_COMPID"`
+	Passphrase         string `mapstructure:"PASSPHRASE"`
+	SigningKey         string `mapstructure:"SIGNING_KEY"`
+	SessionKey         string `mapstructure:"SESSION_KEY"`
+	PrimeApiUrl        string `mapstructure:"PRIME_API_URL"`
+	PortfolioId        string `mapstructure:"PORTFOLIO_ID"`
+	PrimeCredentials   string `mapstructure:"PRIME_CREDENTIALS"`
+	AwsRegion          string `mapstructure:"AWS_REGION"`
+	OrderFillQueueUrl  string `mapstructure:"ORDER_FILL_QUEUE_URL"`
+	AssetTableName     string `mapstructure:"PRODUCT_PRICE_TABLE_NAME"`
 }
 
 func (a AppConfig) IsLocalEnv() bool {
@@ -51,8 +49,6 @@ func Setup(app *AppConfig) error {
 	viper.SetDefault("ENV_NAME", "local")
 
 	viper.SetDefault("AWS_REGION", "us-east-1")
-	viper.SetDefault("PRICE_KDS_STREAM_NAME", "priceFeed")
-	viper.SetDefault("ORDER_KDS_STREAM_NAME", "orderFeed")
 	viper.SetDefault("ORDER_FILL_QUEUE_URL", "http://localhost:4566/000000000000/orderFillQueue.fifo")
 	viper.SetDefault("PRIME_API_URL", "ws-feed.prime.coinbase.com")
 	viper.SetDefault("PRODUCT_PRICE_TABLE_NAME", "Asset")
