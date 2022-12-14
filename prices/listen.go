@@ -61,7 +61,7 @@ var prices = model.PriceSummary{
 func ProcessOrderBookUpdates(message []byte) error {
 	var ud = &model.OrderBookUpdate{}
 	if err := json.Unmarshal(message, ud); err != nil {
-		return fmt.Errorf("unable to umarshal json: %s - msg: %v", string(message), err)
+		return fmt.Errorf("unable to umarshal json: %s - msg: %w", string(message), err)
 	}
 
 	for _, row := range ud.Events {
@@ -73,11 +73,9 @@ func ProcessOrderBookUpdates(message []byte) error {
 			continue
 		}
 
-		product := row.ProductID
-
 		assetPriceIdx := slices.IndexFunc(
 			prices.Assets,
-			func(a model.AssetPrice) bool { return a.Ticker == product },
+			func(a model.AssetPrice) bool { return a.Ticker == row.ProductID },
 		)
 
 		if assetPriceIdx == -1 {
@@ -94,7 +92,7 @@ func ProcessOrderBookUpdates(message []byte) error {
 				continue
 			}
 
-			rowPrice, _ := strconv.ParseFloat(row.Px, 32)
+			rowPrice, _ := strconv.ParseFloat(row.Px, 64)
 
 			if row.Side == "offer" && (math.IsNaN(floor) || rowPrice < floor) {
 
@@ -114,14 +112,12 @@ func ProcessOrderBookUpdates(message []byte) error {
 			floor = prices.Assets[assetPriceIdx].LowBid
 		}
 
-		spread := ceiling - floor
-
 		prices.Assets[assetPriceIdx] = model.AssetPrice{
 			Name:      assetPrice.Name,
 			Ticker:    assetPrice.Ticker,
 			HighOffer: ceiling,
 			LowBid:    floor,
-			Spread:    spread,
+			Spread:    ceiling - floor,
 		}
 	}
 

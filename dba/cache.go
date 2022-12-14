@@ -2,13 +2,12 @@ package dba
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/model"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/pkg/errors"
 )
 
 // How long before we requery to update
@@ -72,7 +71,7 @@ func (ssc *cache) updateAssets(ctx context.Context) ([]model.Asset, error) {
 
 	assets, err := Repo.LoadAssets(ctx)
 	if err != nil {
-		return []model.Asset{}, errors.Wrapf(err, "failed to retrieve assets from dynamodb")
+		return []model.Asset{}, fmt.Errorf("failed to retrieve assets from dynamodb: %w", err)
 	}
 
 	ssc.ssmValues["assets"] = &Entry{

@@ -14,12 +14,9 @@ import (
 	"github.com/coinbase-samples/ib-venue-listener-go/order"
 	"github.com/coinbase-samples/ib-venue-listener-go/prices"
 	"github.com/coinbase-samples/ib-venue-listener-go/prime"
+	"github.com/coinbase-samples/ib-venue-listener-go/queue"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-)
-
-var (
-	productIds = `["BTC-USD", "ETH-USD", "ADA-USD", "MATIC-USD", "ATOM-USD", "SOL-USD"]`
 )
 
 func main() {
@@ -35,22 +32,14 @@ func main() {
 		log.Debugf("starting app with config: %v", app)
 	}
 
-	if app.LogToFile == "true" {
-		// open a file
-		f, err := os.OpenFile("testing.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
-		if err != nil {
-			fmt.Printf("error opening file: %v", err)
-		}
+	f := config.LogInit(app)
 
-		// don't forget to close it
+	if f != nil {
 		defer f.Close()
-
-		config.LogInit(app, f)
-	} else {
-		config.LogInit(app, nil)
 	}
 
 	dba.NewDBA(dba.NewRepo(&app))
+	queue.NewQueue(queue.NewRepo(&app))
 
 	run := make(chan os.Signal, 1)
 	signal.Notify(run, os.Interrupt)
@@ -67,8 +56,8 @@ func processMessagesWithReconnect(app config.AppConfig, interrupt chan os.Signal
 
 	done := make(chan struct{})
 	for {
-		log.Warnf("connecting websocket to %s", app.PrimeApiUrl)
-		c, err := prime.DialWebSocket(context.TODO(), app)
+		log.Infof("connecting websocket to %s", app.PrimeApiUrl)
+		c, err := prime.DialWebSocket(context.Background(), app)
 
 		if err != nil {
 			log.Error(err)
@@ -97,15 +86,6 @@ func processMessagesWithReconnect(app config.AppConfig, interrupt chan os.Signal
 			case <-interrupt:
 				log.Println("interrupt")
 
-				// Cleanly close the connection by sending a close message and then
-				// waiting (with timeout) for the server to close the connection.
-				/* TODO: setup unsubscribes
-				err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-				if err != nil {
-					log.Println("write close:", err)
-					return
-				}
-				*/
 				select {
 				case <-done:
 				case <-time.After(time.Second):
@@ -121,22 +101,19 @@ func processMessagesWithReconnect(app config.AppConfig, interrupt chan os.Signal
 func sendSubscribeMessages(app config.AppConfig, c *websocket.Conn) error {
 	log.Debugf("starting heartbeat subscription")
 	if err := c.WriteMessage(websocket.TextMessage, prime.HeartbeatSubscriptionMsg(app)); err != nil {
-		log.Errorf("Unable to subscribe to heartbeats: %v", err)
-		return err
+		return fmt.Errorf("unable to subscribe to heartbeats: %w", err)
 	}
 	log.Debugf("sent heartbeat subscription")
 
-	log.Debugf("starting price subscription to - %v", productIds)
-	if err := c.WriteMessage(websocket.TextMessage, prime.PricesSubscriptionMsg(app, productIds)); err != nil {
-		log.Errorf("Unable to subscribe to price feed: %v", err)
-		return err
+	log.Debugf("starting price subscription to - %v", app.ProductIds)
+	if err := c.WriteMessage(websocket.TextMessage, prime.PricesSubscriptionMsg(app)); err != nil {
+		return fmt.Errorf("unable to subscribe to price feed: %w", err)
 	}
 	log.Debugf("sent price subscription")
 
 	log.Debugln("starting order subscription")
 	if err := c.WriteMessage(websocket.TextMessage, prime.OrderSubscriptionMsg(app)); err != nil {
-		log.Errorf("Unable to subscribe to orders feed: %v", err)
-		return err
+		return fmt.Errorf("unable to subscribe to orders feed: %w", err)
 	}
 	log.Debugln("started order subscription")
 	return nil
@@ -171,15 +148,13 @@ func processMessages(app config.AppConfig, c *websocket.Conn, done chan struct{}
 	defer close(done)
 	for {
 		_, message, err := c.ReadMessage()
-		//log.Debugf("received raw message - %s", string(message))
 		if err != nil {
-			log.Warnf("error reading message: %v - websocket - %v", message, c)
-			//return fmt.Errorf("problem reading msg: %v", err)
+			log.Errorf("error reading message: %v - websocket - %v", message, c)
 			continue
 		}
 
 		if err := processMessage(app, message); err != nil {
-			log.Warnf("error processing message: %v - websocket - %v", message, c)
+			log.Errorf("error processing message: %v - websocket - %v", message, c)
 			return err
 		}
 	}

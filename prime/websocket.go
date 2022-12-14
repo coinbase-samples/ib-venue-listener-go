@@ -17,7 +17,7 @@ func WriteCloseMessge(c *websocket.Conn) {
 	}
 }
 
-func PricesSubscriptionMsg(app config.AppConfig, productIds string) []byte {
+func PricesSubscriptionMsg(app config.AppConfig) []byte {
 	msgType := "subscribe"
 	channel := "l2_data"
 	key := app.AccessKey
@@ -25,7 +25,7 @@ func PricesSubscriptionMsg(app config.AppConfig, productIds string) []byte {
 
 	msgTime := time.Now().UTC().Format(time.RFC3339)
 
-	signature := Sign(channel, key, accountId, msgTime, "", productIds, app.SigningKey)
+	signature := Sign(channel, key, accountId, msgTime, "", app.ProductIds, app.SigningKey)
 
 	return []byte(fmt.Sprintf(`{
 		"type": "%s",
@@ -36,7 +36,7 @@ func PricesSubscriptionMsg(app config.AppConfig, productIds string) []byte {
 		"signature": "%s",
 		"passphrase": "%s",
 		"timestamp": "%s" }`,
-		msgType, channel, productIds, key, accountId, signature, app.Passphrase, msgTime))
+		msgType, channel, app.ProductIds, key, accountId, signature, app.Passphrase, msgTime))
 }
 
 func OrderSubscriptionMsg(app config.AppConfig) []byte {
@@ -93,7 +93,7 @@ func DialWebSocket(ctx context.Context, app config.AppConfig) (*websocket.Conn, 
 	// TODO: Do we need to look at the response status/code?
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot dial WebSocket: %v", err)
+		return nil, fmt.Errorf("cannot dial WebSocket: %w", err)
 	}
 
 	return c, nil

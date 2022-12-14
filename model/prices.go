@@ -18,10 +18,7 @@ type AssetPrice struct {
 }
 
 func (ap AssetPrice) NotSet() bool {
-	if math.IsNaN(ap.HighOffer) || math.IsNaN(ap.LowBid) || math.IsNaN(ap.Spread) {
-		return true
-	}
-	return false
+	return math.IsNaN(ap.HighOffer) || math.IsNaN(ap.LowBid) || math.IsNaN(ap.Spread)
 }
 
 type AssetPriceUpdate struct {

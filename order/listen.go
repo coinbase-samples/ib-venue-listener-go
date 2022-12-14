@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/coinbase-samples/ib-venue-listener-go/cloud"
 	"github.com/coinbase-samples/ib-venue-listener-go/model"
+	"github.com/coinbase-samples/ib-venue-listener-go/queue"
 
 	"github.com/coinbase-samples/ib-venue-listener-go/config"
 	log "github.com/sirupsen/logrus"
@@ -15,7 +15,7 @@ import (
 func ProcessOrderMessage(app config.AppConfig, message []byte) error {
 	var ud = &model.OrderUpdate{}
 	if err := json.Unmarshal(message, ud); err != nil {
-		return fmt.Errorf("unable to umarshal json: %s - msg: %v", string(message), err)
+		return fmt.Errorf("unable to umarshal json: %s - msg: %w", string(message), err)
 	}
 
 	log.Debugf("parsed order message - %v", ud)
@@ -48,8 +48,8 @@ func writeOrderUpdatesToQueue(
 			if err != nil {
 				log.Errorf("error marshalling order fill message", err)
 			}
-			log.Warnf("publishing order feed update - %s", val)
-			if err := cloud.SqsSendMessage(
+			log.Debugf("publishing order feed update - %s", val)
+			if err := queue.SqsSendMessage(
 				context.Background(),
 				app,
 				app.OrderFillQueueUrl,

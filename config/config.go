@@ -1,10 +1,14 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -26,6 +30,8 @@ type AppConfig struct {
 	AwsRegion          string `mapstructure:"AWS_REGION"`
 	OrderFillQueueUrl  string `mapstructure:"ORDER_FILL_QUEUE_URL"`
 	AssetTableName     string `mapstructure:"PRODUCT_PRICE_TABLE_NAME"`
+	ProductIds         string `mapstructure:"PRODUCT_IDS"`
+	AwsConfig          aws.Config
 }
 
 func (a AppConfig) IsLocalEnv() bool {
@@ -52,15 +58,16 @@ func Setup(app *AppConfig) error {
 	viper.SetDefault("ORDER_FILL_QUEUE_URL", "http://localhost:4566/000000000000/orderFillQueue.fifo")
 	viper.SetDefault("PRIME_API_URL", "ws-feed.prime.coinbase.com")
 	viper.SetDefault("PRODUCT_PRICE_TABLE_NAME", "Asset")
+	viper.SetDefault("PRODUCT_IDS", `["BTC-USD", "ETH-USD", "ADA-USD", "MATIC-USD", "ATOM-USD", "SOL-USD"]`)
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		log.Infof("Missing env file %v", err)
+		log.Debugf("Missing env file %v", err)
 	}
 
 	err = viper.Unmarshal(&app)
 	if err != nil {
-		log.Infof("Cannot parse env file %v", err)
+		log.Debugf("Cannot parse env file %v", err)
 	}
 
 	// If app is not local, pull prime credentials from secret manager
@@ -75,7 +82,7 @@ func Setup(app *AppConfig) error {
 	var creds map[string]interface{}
 	err = json.Unmarshal([]byte(app.PrimeCredentials), &creds)
 	if err != nil {
-		return fmt.Errorf("unable to unmarshal prime credentials: %v", err)
+		return fmt.Errorf("unable to unmarshal prime credentials: %w", err)
 	}
 
 	app.AccessKey = creds["accessKey"].(string)
@@ -83,6 +90,32 @@ func Setup(app *AppConfig) error {
 	app.SigningKey = creds["signingKey"].(string)
 	app.PortfolioId = creds["portfolioId"].(string)
 	app.SenderId = creds["svcAccountId"].(string)
+
+	localEndpoint := fmt.Sprintf("http://%s:4566", app.LocalStackHostname)
+	var cfg aws.Config
+	if app.IsLocalEnv() {
+		cfg, err = awsConfig.LoadDefaultConfig(context.Background(),
+			awsConfig.WithRegion(app.AwsRegion),
+			awsConfig.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+				func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+					return aws.Endpoint{URL: localEndpoint}, nil
+				})),
+			awsConfig.WithCredentialsProvider(credentials.StaticCredentialsProvider{
+				Value: aws.Credentials{
+					AccessKeyID: "dummy", SecretAccessKey: "dummy", SessionToken: "dummy",
+					Source: "Hard-coded credentials; values are irrelevant for local DynamoDB",
+				},
+			}),
+		)
+	} else {
+		cfg, err = awsConfig.LoadDefaultConfig(context.Background())
+	}
+
+	if err != nil {
+		return fmt.Errorf("unable to setup aws config: %w", err)
+	}
+
+	app.AwsConfig = cfg
 
 	return nil
 }

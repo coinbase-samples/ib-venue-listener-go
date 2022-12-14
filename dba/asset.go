@@ -14,14 +14,14 @@ func (m *Repository) PutAsset(ctx context.Context, asset *model.Asset) error {
 
 	item, err := attributevalue.MarshalMap(asset)
 	if err != nil {
-		return fmt.Errorf("unable to marshal asset: %v", err)
+		return fmt.Errorf("unable to marshal asset: %w", err)
 	}
 
 	if _, err = m.Svc.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(m.App.AssetTableName),
 		Item:      item,
 	}); err != nil {
-		return fmt.Errorf("unable to PutItem on DynamoDB - msg: %v", err)
+		return fmt.Errorf("unable to PutItem on DynamoDB - msg: %w", err)
 	}
 
 	return nil
@@ -37,12 +37,12 @@ func (m *Repository) LoadAssets(ctx context.Context) ([]model.Asset, error) {
 	})
 
 	if err != nil {
-		return assets, fmt.Errorf("unable to scan/load assets: %v", err)
+		return assets, fmt.Errorf("unable to scan/load assets: %w", err)
 	}
 
 	err = attributevalue.UnmarshalListOfMaps(out.Items, &assets)
 	if err != nil {
-		return assets, fmt.Errorf("unable to unmarshal assets: %v", err)
+		return assets, fmt.Errorf("unable to unmarshal assets: %w", err)
 	}
 
 	return assets, nil
