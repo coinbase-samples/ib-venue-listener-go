@@ -126,19 +126,22 @@ func processMessage(app config.AppConfig, message []byte) error {
 	}
 
 	// process by channel
-	if ud.Channel == "l2_data" {
+	switch ud.Channel {
+	case "l2_data":
 		prices.ProcessOrderBookUpdates(message)
-	} else if ud.Channel == "subscriptions" {
+	case "subscriptions":
 		log.Debugf("subscription message - %s", string(message))
 		var hd = &model.HeartbeatMessage{}
 		if err := json.Unmarshal(message, hd); err != nil {
 			return fmt.Errorf("unable to umarshal json: %s - msg: %w", string(message), err)
 		}
 		log.Debugf("parsed subscription - %v", hd)
-	} else if ud.Channel == "heartbeat" {
+	case "heartbeat":
 		log.Debugf("heartbeat incoming! - %s", string(message))
-	} else if ud.Channel == "orders" {
+	case "orders":
 		order.ProcessOrderMessage(app, message)
+	default:
+		return fmt.Errorf("unknown channel: %v", ud.Channel)
 	}
 
 	return nil
