@@ -122,7 +122,7 @@ func sendSubscribeMessages(app config.AppConfig, c *websocket.Conn) error {
 func processMessage(app config.AppConfig, message []byte) error {
 	var ud = &model.GenericMessage{}
 	if err := json.Unmarshal(message, ud); err != nil {
-		return fmt.Errorf("unable to umarshal json: %s - msg: %v", string(message), err)
+		return fmt.Errorf("unable to umarshal json: %s - msg: %w", string(message), err)
 	}
 
 	// process by channel
@@ -132,7 +132,7 @@ func processMessage(app config.AppConfig, message []byte) error {
 		log.Debugf("subscription message - %s", string(message))
 		var hd = &model.HeartbeatMessage{}
 		if err := json.Unmarshal(message, hd); err != nil {
-			return fmt.Errorf("unable to umarshal json: %s - msg: %v", string(message), err)
+			return fmt.Errorf("unable to umarshal json: %s - msg: %w", string(message), err)
 		}
 		log.Debugf("parsed subscription - %v", hd)
 	} else if ud.Channel == "heartbeat" {
@@ -154,8 +154,7 @@ func processMessages(app config.AppConfig, c *websocket.Conn, done chan struct{}
 		}
 
 		if err := processMessage(app, message); err != nil {
-			log.Errorf("error processing message: %v - websocket - %v", message, c)
-			return err
+			return fmt.Errorf("error processing message: %v - websocket - %v", message, c)
 		}
 	}
 }
