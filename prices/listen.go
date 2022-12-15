@@ -131,7 +131,7 @@ func EmitPriceUpdates(app config.AppConfig, interrupt chan os.Signal) {
 		select {
 		case <-ticker.C:
 			for _, asset := range prices.Assets {
-				HandlePriceUpdate(context.TODO(), asset)
+				HandlePriceUpdate(context.Background(), asset)
 			}
 		case <-interrupt:
 			log.Debugln("stopping price emitter")
