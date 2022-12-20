@@ -32,5 +32,7 @@ func NewDBA(r *Repository) {
 }
 
 func setupService(a *config.AppConfig) *dynamodb.Client {
-	return dynamodb.NewFromConfig(a.AwsConfig)
+	return dynamodb.NewFromConfig(a.AwsConfig, func(o *dynamodb.Options) {
+		o.EndpointResolver = dynamodb.EndpointResolverFromURL(a.DatabaseEndpoint)
+	})
 }

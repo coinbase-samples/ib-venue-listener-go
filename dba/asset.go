@@ -25,7 +25,6 @@ func (m *Repository) PutAsset(ctx context.Context, asset *model.Asset) error {
 	}
 
 	return nil
-
 }
 
 func (m *Repository) LoadAssets(ctx context.Context) ([]model.Asset, error) {
