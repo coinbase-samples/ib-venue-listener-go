@@ -123,7 +123,7 @@ func sendSubscribeMessages(app config.AppConfig, c *websocket.Conn) error {
 func processMessage(app config.AppConfig, message []byte) error {
 	var ud = &model.GenericMessage{}
 	if err := json.Unmarshal(message, ud); err != nil {
-		return fmt.Errorf("unable to umarshal json: %s - msg: %w", string(message), err)
+		return fmt.Errorf("unable to umarshal json: %s - msg: %v", string(message), err)
 	}
 
 	// process by channel
@@ -134,7 +134,7 @@ func processMessage(app config.AppConfig, message []byte) error {
 		log.Debugf("subscription message - %s", string(message))
 		var hd = &model.HeartbeatMessage{}
 		if err := json.Unmarshal(message, hd); err != nil {
-			return fmt.Errorf("unable to umarshal json: %s - msg: %w", string(message), err)
+			return fmt.Errorf("unable to umarshal json: %s - msg: %v", string(message), err)
 		}
 		log.Debugf("parsed subscription - %v", hd)
 	case "heartbeats":
@@ -143,7 +143,7 @@ func processMessage(app config.AppConfig, message []byte) error {
 		log.Debugf("processing order mesage - %s", string(message))
 		return order.ProcessOrderMessage(app, message)
 	default:
-		log.Debugf("unspecified channel: %s - %v", ud.Channel, string(message))
+		log.Debugf("unspecified channel: %s - %s", ud.Channel, string(message))
 	}
 
 	return nil
@@ -154,7 +154,7 @@ func processMessages(app config.AppConfig, c *websocket.Conn, done chan struct{}
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
-			log.Errorf("error reading message: %v - %w", string(message), err)
+			log.Errorf("error reading message: %v - %v", string(message), err)
 			continue
 		}
 

@@ -161,7 +161,7 @@ func HandlePriceUpdate(ctx context.Context, assetPrice model.AssetPrice) {
 
 	log.Debugf("updating asset - %v", asset)
 	if err := dba.Repo.PutAsset(ctx, asset); err != nil {
-		log.Errorf("could not update dynamo - %w", err)
+		log.Errorf("could not update dynamo - %v", err)
 	}
 
 }
