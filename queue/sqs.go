@@ -55,5 +55,10 @@ func SqsSendMessage(
 }
 
 func setupService(a *config.AppConfig) *sqs.Client {
+	if a.IsLocalEnv() {
+		return sqs.NewFromConfig(a.AwsConfig, func(o *sqs.Options) {
+			o.EndpointResolver = sqs.EndpointResolverFromURL(a.DatabaseEndpoint)
+		})
+	}
 	return sqs.NewFromConfig(a.AwsConfig)
 }

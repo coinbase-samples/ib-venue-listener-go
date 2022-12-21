@@ -60,7 +60,7 @@ func processMessagesWithReconnect(app config.AppConfig, interrupt chan os.Signal
 		c, err := prime.DialWebSocket(context.Background(), app)
 
 		if err != nil {
-			log.Error(err)
+			log.Errorf("error connecting to websocket: %w", err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -99,6 +99,7 @@ func processMessagesWithReconnect(app config.AppConfig, interrupt chan os.Signal
 }
 
 func sendSubscribeMessages(app config.AppConfig, c *websocket.Conn) error {
+
 	log.Debugf("starting heartbeat subscription")
 	if err := c.WriteMessage(websocket.TextMessage, prime.HeartbeatSubscriptionMsg(app)); err != nil {
 		return fmt.Errorf("unable to subscribe to heartbeats: %w", err)
@@ -111,7 +112,7 @@ func sendSubscribeMessages(app config.AppConfig, c *websocket.Conn) error {
 	}
 	log.Debugf("sent price subscription")
 
-	log.Debugln("starting order subscription")
+	log.Debugf("starting order subscription - %s", app.PortfolioId)
 	if err := c.WriteMessage(websocket.TextMessage, prime.OrderSubscriptionMsg(app)); err != nil {
 		return fmt.Errorf("unable to subscribe to orders feed: %w", err)
 	}
@@ -122,26 +123,27 @@ func sendSubscribeMessages(app config.AppConfig, c *websocket.Conn) error {
 func processMessage(app config.AppConfig, message []byte) error {
 	var ud = &model.GenericMessage{}
 	if err := json.Unmarshal(message, ud); err != nil {
-		return fmt.Errorf("unable to umarshal json: %s - msg: %w", string(message), err)
+		return fmt.Errorf("unable to umarshal json: %s - msg: %v", string(message), err)
 	}
 
 	// process by channel
 	switch ud.Channel {
 	case "l2_data":
-		prices.ProcessOrderBookUpdates(message)
+		return prices.ProcessOrderBookUpdates(message)
 	case "subscriptions":
 		log.Debugf("subscription message - %s", string(message))
 		var hd = &model.HeartbeatMessage{}
 		if err := json.Unmarshal(message, hd); err != nil {
-			return fmt.Errorf("unable to umarshal json: %s - msg: %w", string(message), err)
+			return fmt.Errorf("unable to umarshal json: %s - msg: %v", string(message), err)
 		}
 		log.Debugf("parsed subscription - %v", hd)
-	case "heartbeat":
+	case "heartbeats":
 		log.Debugf("heartbeat incoming! - %s", string(message))
 	case "orders":
-		order.ProcessOrderMessage(app, message)
+		log.Debugf("processing order mesage - %s", string(message))
+		return order.ProcessOrderMessage(app, message)
 	default:
-		log.Debugf("unspecified channel: %v", ud.Channel)
+		log.Debugf("unspecified channel: %s - %s", ud.Channel, string(message))
 	}
 
 	return nil
@@ -152,7 +154,7 @@ func processMessages(app config.AppConfig, c *websocket.Conn, done chan struct{}
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
-			log.Errorf("error reading message: %v", err)
+			log.Errorf("error reading message: %v - %v", string(message), err)
 			continue
 		}
 

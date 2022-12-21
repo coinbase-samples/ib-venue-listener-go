@@ -35,7 +35,8 @@ func PricesSubscriptionMsg(app config.AppConfig) []byte {
 		"api_key_id": "%s",
 		"signature": "%s",
 		"passphrase": "%s",
-		"timestamp": "%s" }`,
+		"timestamp": "%s"
+		}`,
 		msgType, channel, app.ProductIds, key, accountId, signature, app.Passphrase, msgTime))
 }
 
@@ -47,22 +48,24 @@ func OrderSubscriptionMsg(app config.AppConfig) []byte {
 	portfolioId := app.PortfolioId
 	dt := time.Now().UTC()
 	msgTime := dt.Format(time.RFC3339)
-	signature := Sign(channel, key, accountId, msgTime, portfolioId, "", app.SigningKey)
-	return []byte(fmt.Sprintf(`{
+	signature := Sign(channel, key, accountId, msgTime, portfolioId, app.ProductIds, app.SigningKey)
+	sub := fmt.Sprintf(`{
         "type": "%s",
         "channel": "%s",
         "access_key": "%s",
         "api_key_id": "%s",
-				"portfolio_id": "%s",
+		"portfolio_id": "%s",
         "signature": "%s",
         "passphrase": "%s",
-        "timestamp": "%s"
-      }`, msgType, channel, key, accountId, portfolioId, signature, app.Passphrase, msgTime))
+        "timestamp": "%s",
+		"product_ids": %s
+      }`, msgType, channel, key, accountId, portfolioId, signature, app.Passphrase, msgTime, app.ProductIds)
+	return []byte(sub)
 }
 
 func HeartbeatSubscriptionMsg(app config.AppConfig) []byte {
 	msgType := "subscribe"
-	channel := "heartbeat"
+	channel := "heartbeats"
 	key := app.AccessKey
 	accountId := app.SenderId
 	portfolioId := app.PortfolioId
@@ -76,11 +79,10 @@ func HeartbeatSubscriptionMsg(app config.AppConfig) []byte {
         "channel": "%s",
         "access_key": "%s",
         "api_key_id": "%s",
-				"portfolio_id": "%s",
+		"portfolio_id": "%s",
         "signature": "%s",
         "passphrase": "%s",
-        "timestamp": "%s",
-				"prouduct_ids": "[\"BTC-USD\"]",
+        "timestamp": "%s"
       }`, msgType, channel, key, accountId, portfolioId, signature, app.Passphrase, msgTime))
 }
 

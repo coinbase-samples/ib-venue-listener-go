@@ -23,7 +23,6 @@ type AppConfig struct {
 	SenderId           string `mapstructure:"SENDER_COMPID"`
 	Passphrase         string `mapstructure:"PASSPHRASE"`
 	SigningKey         string `mapstructure:"SIGNING_KEY"`
-	SessionKey         string `mapstructure:"SESSION_KEY"`
 	PrimeApiUrl        string `mapstructure:"PRIME_API_URL"`
 	PortfolioId        string `mapstructure:"PORTFOLIO_ID"`
 	PrimeCredentials   string `mapstructure:"PRIME_CREDENTIALS"`
@@ -31,6 +30,7 @@ type AppConfig struct {
 	OrderFillQueueUrl  string `mapstructure:"ORDER_FILL_QUEUE_URL"`
 	AssetTableName     string `mapstructure:"PRODUCT_PRICE_TABLE_NAME"`
 	ProductIds         string `mapstructure:"PRODUCT_IDS"`
+	DatabaseEndpoint   string `mapstructure:"DATABASE_ENDPOINT"`
 	AwsConfig          aws.Config
 }
 
@@ -70,6 +70,31 @@ func Setup(app *AppConfig) error {
 		log.Debugf("Cannot parse env file %v", err)
 	}
 
+	var cfg aws.Config
+	if app.IsLocalEnv() {
+		cfg, err = awsConfig.LoadDefaultConfig(context.Background(),
+			awsConfig.WithRegion(app.AwsRegion),
+			awsConfig.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+				func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+					return aws.Endpoint{URL: app.DatabaseEndpoint}, nil
+				})),
+			awsConfig.WithCredentialsProvider(credentials.StaticCredentialsProvider{
+				Value: aws.Credentials{
+					AccessKeyID: "dummy", SecretAccessKey: "dummy", SessionToken: "dummy",
+					Source: "Hard-coded credentials; values are irrelevant for local DynamoDB",
+				},
+			}),
+		)
+	} else {
+		cfg, err = awsConfig.LoadDefaultConfig(context.Background())
+	}
+
+	if err != nil {
+		return fmt.Errorf("unable to setup aws config: %w", err)
+	}
+
+	app.AwsConfig = cfg
+
 	// If app is not local, pull prime credentials from secret manager
 	if app.IsLocalEnv() {
 		return nil
@@ -90,32 +115,6 @@ func Setup(app *AppConfig) error {
 	app.SigningKey = creds["signingKey"].(string)
 	app.PortfolioId = creds["portfolioId"].(string)
 	app.SenderId = creds["svcAccountId"].(string)
-
-	localEndpoint := fmt.Sprintf("http://%s:4566", app.LocalStackHostname)
-	var cfg aws.Config
-	if app.IsLocalEnv() {
-		cfg, err = awsConfig.LoadDefaultConfig(context.Background(),
-			awsConfig.WithRegion(app.AwsRegion),
-			awsConfig.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
-				func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-					return aws.Endpoint{URL: localEndpoint}, nil
-				})),
-			awsConfig.WithCredentialsProvider(credentials.StaticCredentialsProvider{
-				Value: aws.Credentials{
-					AccessKeyID: "dummy", SecretAccessKey: "dummy", SessionToken: "dummy",
-					Source: "Hard-coded credentials; values are irrelevant for local DynamoDB",
-				},
-			}),
-		)
-	} else {
-		cfg, err = awsConfig.LoadDefaultConfig(context.Background())
-	}
-
-	if err != nil {
-		return fmt.Errorf("unable to setup aws config: %w", err)
-	}
-
-	app.AwsConfig = cfg
 
 	return nil
 }
